@@ -116,7 +116,18 @@ class HostedMapStore:
 
     def __init__(self, root: str | Path | None = None, refresh_seconds: int | None = None):
         project_root = Path(__file__).resolve().parents[1]
-        self.root = Path(root or os.getenv("HOSTED_MAPS_DIR", project_root / "work" / "hosted-maps"))
+        # Vercel packages the project on a read-only filesystem.  Keep the
+        # local file-backed store for development, but use its writable
+        # scratch directory in serverless deployments.
+        if root is None:
+            configured_root = os.getenv("HOSTED_MAPS_DIR", "").strip()
+            if configured_root:
+                root = configured_root
+            elif os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+                root = Path("/tmp") / "mapa-participacion-ciudadana"  # noqa: S108 - Vercel's writable scratch space
+            else:
+                root = project_root / "work" / "hosted-maps"
+        self.root = Path(root)
         self.source_cache = self.root / "source-cache"
         self.root.mkdir(parents=True, exist_ok=True)
         self.source_cache.mkdir(parents=True, exist_ok=True)
