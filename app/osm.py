@@ -82,14 +82,18 @@ def _geojson(elements: list[dict[str, Any]]) -> dict[str, Any]:
     return {"type": "FeatureCollection", "features": features}
 
 
-def get_road_lines(features: list[dict[str, Any]], cache_dir: str | Path) -> dict[str, Any]:
+def get_road_lines(
+    features: list[dict[str, Any]],
+    cache_dir: str | Path,
+    bbox: tuple[float, float, float, float] | None = None,
+) -> dict[str, Any]:
     """Return cached OSM highway lines for the municipality bounding box.
 
     The client clips these lines to the official INEGI municipality geometry.
     OSM is used only as visual context; no OSM names or geometry are used to
     join survey records.
     """
-    bbox = _bbox(features)
+    bbox = bbox or _bbox(features)
     if not bbox:
         return {"type": "FeatureCollection", "features": [], "source": "OpenStreetMap", "features_count": 0}
     cache = Path(cache_dir)

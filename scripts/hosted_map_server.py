@@ -66,6 +66,11 @@ def _public_page(envelope: dict[str, Any], request: Request) -> str:
     version_url = f"{_base_url(request)}/api/maps/{map_id}/version"
     terrain_url = f"{_base_url(request)}/maps/{map_id}/terrain.jpg"
     osm_roads_url = f"{_base_url(request)}/api/maps/{map_id}/osm-roads"
+    result = envelope.get("result", {})
+    background_features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
+    bbox = _bbox_parameter(background_features)
+    if bbox:
+        osm_roads_url = f"{osm_roads_url}?{urlencode({'bbox': bbox})}"
     config = {
         "toolOutput": envelope["result"],
         "publicMap": True,
@@ -102,6 +107,15 @@ def _coordinates(value: Any, output: list[tuple[float, float]] | None = None) ->
         for item in value:
             _coordinates(item, output)
     return output
+
+
+def _bbox_parameter(features: list[dict[str, Any]]) -> str | None:
+    points = [point for feature in features for point in _coordinates(feature.get("geometry", {}).get("coordinates"))]
+    if not points:
+        return None
+    longitudes = [point[0] for point in points]
+    latitudes = [point[1] for point in points]
+    return ",".join(f"{value:.7f}" for value in (min(latitudes), min(longitudes), max(latitudes), max(longitudes)))
 
 
 def _terrain_path(map_id: str) -> Path:
@@ -309,10 +323,17 @@ async def terrain(request: Request) -> FileResponse | JSONResponse:
 
 async def osm_roads(request: Request) -> JSONResponse:
     try:
-        envelope = store.get(request.path_params["map_id"])
-        result = envelope.get("result", {})
-        features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
-        roads = get_road_lines(features, store.root / "osm-cache")
+        bbox_text = str(request.query_params.get("bbox") or "").strip()
+        if bbox_text:
+            values = [float(value) for value in bbox_text.split(",")]
+            if len(values) != 4 or not (values[0] < values[2] and values[1] < values[3]):
+                raise ValueError("El límite OSM no es válido.")
+            roads = get_road_lines([], store.root / "osm-cache", bbox=tuple(values))
+        else:
+            envelope = store.get(request.path_params["map_id"])
+            result = envelope.get("result", {})
+            features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
+            roads = get_road_lines(features, store.root / "osm-cache")
         return JSONResponse(roads, headers={"Cache-Control": "public, max-age=86400"})
     except FileNotFoundError:
         return _error("No encontré ese mapa público.", 404)
