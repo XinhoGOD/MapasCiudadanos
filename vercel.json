@@ -2,11 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "scripts/hosted_map_server.py": {
-      "includeFiles": [
-        "app/**",
-        "data/**",
-        "ui/**"
-      ]
+      "includeFiles": "{app/**,data/**,ui/**}"
     }
   }
 }
