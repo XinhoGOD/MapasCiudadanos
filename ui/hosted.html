@@ -99,45 +99,124 @@
     @media (max-width: 820px) { .shell { width: min(100% - 32px, 680px); } .header-nav { display: none; } .header-actions { margin-left: auto; } .main-grid { grid-template-columns: 1fr; gap: 28px; padding-top: 36px; } }
     @media (max-width: 640px) { .shell { width: calc(100% - 28px); } .masthead { align-items: flex-start; flex-direction: column; gap: 10px; } .brand-image { width: min(360px, 100%); } .header-actions { width: 100%; align-items: flex-start; justify-content: space-between; margin-left: 0; } .office { max-width: none; padding: 0; border: 0; text-align: left; } .access { margin-top: 5px; } .main-grid { gap: 24px; padding-top: 30px; } h1 { font-size: clamp(32px, 10vw, 45px); } }
   </style>
+  <style data-reference-layout>
+    :root { font-family: "Montserrat", sans-serif; color: #333; background: #f4f4f5; --ref-guinda: #611232; --ref-tinto: #9d2449; --ref-gold: #a57f2c; --ref-gray: #98989a; --ref-light: #f4f4f5; --ref-dark: #333; --ref-surface: #f9f9f9; --ref-line: rgba(152,152,154,.32); }
+    html { min-height: 100%; scroll-behavior: smooth; }
+    body { min-height: 100vh; display: flex; flex-direction: column; background: var(--ref-light); color: var(--ref-dark); }
+    .reference-header { position: sticky; top: 0; z-index: 50; width: 100%; background: #fff; border-bottom: 1px solid var(--ref-line); box-shadow: 0 2px 8px rgba(51,51,51,.06); }
+    .reference-header__inner, .reference-main, .reference-footer__inner { width: min(1280px, calc(100% - 80px)); margin: 0 auto; }
+    .reference-header__inner { min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .reference-brand { display: flex; align-items: center; flex-shrink: 0; }
+    .reference-brand img { display: block; width: min(360px, 34vw); height: auto; }
+    .reference-nav { display: flex; align-items: center; gap: 24px; margin-left: auto; }
+    .reference-nav a { color: #333; font-size: 12px; font-weight: 600; text-decoration: none; transition: color .2s ease; }
+    .reference-nav a:hover { color: var(--ref-tinto); }
+    .reference-access { min-height: 38px; padding: 10px 20px; color: #fff; background: var(--ref-tinto); border: 0; border-radius: 2px; box-shadow: 0 2px 5px rgba(97,18,50,.18); cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .reference-access:hover { background: var(--ref-guinda); }
+    .reference-main { flex: 1; padding: 32px 0; }
+    .reference-hero { padding: 32px 0 40px; border-bottom: 1px solid var(--ref-line); }
+    .reference-hero h1 { margin: 0 0 16px; color: var(--ref-guinda); font-size: clamp(32px, 4vw, 48px); line-height: 1.2; letter-spacing: -.02em; font-weight: 700; }
+    .reference-hero p { max-width: 760px; margin: 0; color: #666; font-size: 18px; line-height: 1.6; }
+    .reference-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; margin-top: 32px; }
+    .reference-column--main { grid-column: span 8; display: flex; flex-direction: column; gap: 24px; }
+    .reference-column--side { grid-column: span 4; display: flex; }
+    .reference-card { width: 100%; padding: 24px; background: #fff; border: 1px solid var(--ref-gray); border-radius: 4px; box-shadow: 0 4px 20px 4px rgba(0,0,0,.05); }
+    .reference-card--processing { display: flex; flex-direction: column; min-height: 100%; }
+    .reference-card__head { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--ref-line); }
+    .reference-step { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; color: #fff; background: var(--ref-guinda); border-radius: 2px; font-size: 11px; font-weight: 700; }
+    .reference-step--gold { background: var(--ref-gold); }
+    .reference-card h2 { margin: 0; color: #333; font-size: 22px; line-height: 1.3; font-weight: 600; }
+    .reference-card p { color: #666; font-size: 12px; line-height: 1.55; }
+    .reference-label { display: block; margin-bottom: 8px; color: #4a4a4a; font-size: 12px; font-weight: 600; }
+    .reference-field { margin-top: 20px; }
+    .reference-field:first-child { margin-top: 0; }
+    .reference-field__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .reference-optional { color: #777; font-size: 10px; }
+    .reference-input, .reference-select { width: 100%; min-height: 43px; padding: 10px 12px; color: #333; background: #f8f8f8; border: 1px solid var(--ref-gray); border-radius: 2px; font: inherit; font-size: 12px; }
+    .reference-input:focus, .reference-select:focus { outline: 2px solid rgba(157,36,73,.25); outline-offset: 1px; border-color: var(--ref-tinto); }
+    .reference-select:disabled { color: #8b8b8b; background: #eee; cursor: not-allowed; }
+    .reference-sheet-row { display: flex; gap: 12px; align-items: stretch; }
+    .reference-sheet-row .reference-input { flex: 1; }
+    .reference-button { min-height: 43px; padding: 10px 18px; color: #fff; background: var(--ref-guinda); border: 1px solid var(--ref-guinda); border-radius: 2px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .reference-button:hover { background: var(--ref-tinto); }
+    .reference-button--gold { background: var(--ref-gold); border-color: var(--ref-gold); }
+    .reference-button--gold:hover { background: #8c6b25; }
+    .reference-help { display: flex; gap: 6px; align-items: center; margin: 9px 0 0; color: #777 !important; font-size: 10px !important; }
+    .reference-help::before { content: "i"; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: #fff; background: var(--ref-gray); border-radius: 50%; font-size: 9px; font-weight: 700; }
+    .reference-parameters { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .reference-file { margin-top: 21px; padding-top: 18px; border-top: 1px solid var(--ref-line); }
+    .reference-file input { background: #f8f8f8; }
+    .reference-processing__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 0 32px; text-align: center; }
+    .reference-map-icon { margin-bottom: 16px; color: #d2d2d2; font-size: 54px; line-height: 1; }
+    .reference-processing__body p { max-width: 270px; margin: 0; }
+    .reference-render { width: 100%; min-height: 49px; color: #fff; background: var(--ref-gold); border: 1px solid var(--ref-gold); border-radius: 2px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; }
+    .reference-render:hover { background: #8c6b25; }
+    .reference-render:disabled { cursor: wait; opacity: .55; }
+    .reference-status { min-height: 22px; margin-top: 12px; color: #777; font-size: 11px; line-height: 1.45; text-align: center; }
+    .reference-status.error { color: #942e3f; }
+    .reference-success { margin-top: 16px; padding: 12px; color: var(--verde); background: #e7f0ec; border-left: 4px solid var(--verde); font-size: 11px; line-height: 1.5; }
+    .reference-success a { display: block; margin-top: 5px; color: var(--ref-tinto); font-weight: 700; overflow-wrap: anywhere; }
+    .reference-privacy { margin-top: 14px; color: #777; font-size: 10px; line-height: 1.45; }
+    .reference-footer { width: 100%; margin-top: auto; padding: 32px 0; color: #fff; background: var(--ref-dark); border-top: 3px solid var(--ref-tinto); }
+    .reference-footer__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .reference-footer strong { font-size: 16px; }
+    .reference-footer p { margin: 5px 0 0; color: #aaa; font-size: 12px; }
+    .reference-footer nav { display: flex; flex-wrap: wrap; gap: 24px; }
+    .reference-footer a { color: #aaa; font-size: 11px; text-decoration: none; }
+    .reference-footer a:hover { color: var(--ref-gold); }
+    @media (max-width: 900px) { .reference-header__inner, .reference-main, .reference-footer__inner { width: min(100% - 40px, 680px); } .reference-nav { display: none; } .reference-header__inner { gap: 12px; } .reference-header__inner .reference-access { margin-left: auto; } .reference-grid { display: block; } .reference-column--side { margin-top: 24px; } }
+    @media (max-width: 640px) { .reference-header__inner, .reference-main, .reference-footer__inner { width: calc(100% - 32px); } .reference-header__inner { min-height: 72px; flex-wrap: wrap; padding: 10px 0; } .reference-brand img { width: min(340px, 100%); } .reference-header__inner .reference-access { min-height: 34px; padding: 8px 13px; } .reference-main { padding: 20px 0 28px; } .reference-hero { padding: 18px 0 28px; } .reference-hero h1 { font-size: 32px; } .reference-hero p { font-size: 15px; } .reference-card { padding: 18px; } .reference-sheet-row, .reference-parameters { display: block; } .reference-sheet-row .reference-button { width: 100%; margin-top: 10px; } .reference-parameters .reference-field + .reference-field { margin-top: 20px; } .reference-footer__inner { align-items: flex-start; flex-direction: column; } }
+  </style>
 </head>
 <body>
-  <main class="shell" id="inicio">
-    <header class="masthead">
-      <a class="brand-link" href="#inicio" aria-label="Ir al inicio"><img class="brand-image" src="/assets/identity/planeacion-proporcionado.png" alt="Hidalgo Primero el Pueblo · Planeación · Unidad de Planeación y Prospectiva"></a>
-      <nav class="header-nav" aria-label="Navegación institucional"><a href="#fuente">Fuente de datos</a><a href="#alcance">Alcance</a><a href="#footer">Información</a></nav>
-      <div class="header-actions"><div class="office">Dirección de Participación Ciudadana<small>Unidad de Planeación y Prospectiva · Sistema de análisis territorial</small></div><a class="access" href="#fuente">Acceder</a></div>
-    </header>
-    <div class="main-grid">
-      <section class="intro">
-        <div class="eyebrow">Mapeo territorial de participación ciudadana</div>
-        <h1>Plataforma de análisis y prospectiva cartográfica</h1>
-        <p>Módulo técnico para la visualización, análisis y generación de mapas municipales a partir de resultados de encuestas y datos geoespaciales. Herramienta de uso institucional para Hidalgo.</p>
-        <div class="decision-note">El resultado ayuda a identificar dónde se concentra una necesidad y qué territorios requieren atención, sin publicar filas individuales.</div>
-        <div class="outputs" aria-label="Información que aporta el mapa">
-          <div class="output"><strong>Territorio</strong><span>Localidades y colonias ubicadas</span></div>
-          <div class="output"><strong>Frecuencia</strong><span>Respuestas agrupadas por zona</span></div>
-          <div class="output"><strong>Decisión</strong><span>Prioridades visibles en el mapa</span></div>
+  <header class="reference-header">
+    <div class="reference-header__inner">
+      <a class="reference-brand" href="#inicio" aria-label="Unidad de Planeación y Prospectiva"><img src="assets/identity/hidalgo-planeacion.jpeg" alt="Hidalgo Primero el Pueblo. Planeación, Unidad de Planeación y Prospectiva"></a>
+      <nav class="reference-nav" aria-label="Navegación institucional"><a href="#fuente">Transparencia</a><a href="#parametros">Servicios</a><a href="#footer">Contacto</a></nav>
+      <a class="reference-access" href="#fuente">Acceder</a>
+    </div>
+  </header>
+  <main class="reference-main" id="inicio">
+    <section class="reference-hero">
+      <h1>Plataforma de Análisis y Prospectiva Cartográfica</h1>
+      <p>Módulo técnico para la visualización, análisis y generación de prospectivas basadas en datos geoespaciales. Herramienta de uso institucional.</p>
+    </section>
+    <form id="map-form">
+      <section class="reference-grid" aria-label="Configuración del mapa">
+        <div class="reference-column--main">
+          <section class="reference-card" id="fuente" aria-labelledby="source-title">
+            <div class="reference-card__head"><span class="reference-step">01</span><h2 id="source-title">Fuente de Datos</h2></div>
+            <div class="reference-field">
+              <label class="reference-label" for="sheet-url">URI del Documento (Google Sheets)</label>
+              <div class="reference-sheet-row"><input class="reference-input" id="sheet-url" name="sheet_url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"><button class="reference-button" id="sync-sheet" type="button">Sincronizar Datos</button></div>
+              <p class="reference-help">Requiere permisos de lectura pública o autenticación institucional activa.</p>
+            </div>
+            <div class="reference-file"><div class="reference-field__heading"><label class="reference-label" for="source-file">Excel o CSV</label><span class="reference-optional">.xlsx · .xls · .csv</span></div><input class="reference-input" id="source-file" name="file" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></div>
+          </section>
+          <section class="reference-card" id="parametros" aria-labelledby="parameters-title">
+            <div class="reference-card__head"><span class="reference-step">02</span><h2 id="parameters-title">Parámetros Espaciales</h2></div>
+            <div class="reference-parameters">
+              <div class="reference-field"><div class="reference-field__heading"><label class="reference-label" for="municipality">Demarcación Territorial</label><span class="reference-optional">se detecta solo</span></div><select class="reference-select" id="municipality" name="municipality" disabled><option value="">Primero sincroniza la fuente</option></select></div>
+              <div class="reference-field"><div class="reference-field__heading"><label class="reference-label" for="question">Variable Analítica</label><span class="reference-optional">se detecta sola</span></div><select class="reference-select" id="question" name="question" disabled><option value="">Primero sincroniza la fuente</option></select></div>
+            </div>
+          </section>
+        </div>
+        <div class="reference-column--side">
+          <section class="reference-card reference-card--processing" id="procesamiento" aria-labelledby="processing-title">
+            <div class="reference-card__head"><span class="reference-step reference-step--gold">03</span><h2 id="processing-title">Procesamiento</h2></div>
+            <div class="reference-processing__body"><div class="reference-map-icon" aria-hidden="true">▱</div><p>Configura los parámetros requeridos para habilitar el motor de renderizado cartográfico.</p></div>
+            <button class="reference-render" id="submit" type="submit">Ejecutar Renderizado</button>
+            <div id="status" class="reference-status" aria-live="polite"></div>
+            <div id="success" class="reference-success" hidden></div>
+            <div class="reference-privacy">Sólo se conserva una síntesis territorial. El archivo original no se publica.</div>
+          </section>
         </div>
       </section>
-      <section class="panel" id="fuente" aria-labelledby="form-title">
-        <div class="panel-head"><div><div class="panel-kicker">Paso 1 · Fuente de datos</div><h2 id="form-title">Generar mapa</h2></div><div class="panel-status">Datos agregados</div></div>
-        <p>Elige una fuente. Después selecciona municipio y pregunta; el sistema detecta las columnas automáticamente.</p>
-      <form id="map-form">
-        <div class="field-group"><div class="field-heading"><label for="sheet-url">Google Sheets público</label><span class="optional">recomendado</span></div><input id="sheet-url" name="sheet_url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"></div>
-        <div class="row">
-          <div class="field-group"><div class="field-heading"><label for="municipality">Municipio</label><span class="optional">se detecta solo</span></div><select id="municipality" name="municipality" disabled><option value="">Primero pega el enlace público</option></select></div>
-          <div class="field-group"><div class="field-heading"><label for="question">Pregunta</label><span class="optional">se detecta sola</span></div><select id="question" name="question" disabled><option value="">Primero pega el enlace público</option></select></div>
-        </div>
-        <div class="divider">o carga un archivo local</div>
-        <div class="file-field"><div class="field-heading"><label for="source-file">Excel o CSV</label><span class="optional">.xlsx · .xls · .csv</span></div><input id="source-file" name="file" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></div>
-        <div class="actions"><button id="submit" type="submit">Generar mapa público</button><div id="status" class="status" aria-live="polite"></div></div>
-      </form>
-      <div id="success" class="success" hidden></div>
-      <div class="privacy">Sólo se conserva una síntesis territorial. El archivo original no se publica.</div>
-    </section>
-    </div>
-    <footer id="footer"><strong>Planeación Hidalgo</strong> · Dirección de Participación Ciudadana · Unidad de Planeación y Prospectiva<br>Cartografía de Hidalgo basada en fuentes oficiales de INEGI. El enlace público debe tratarse como información compartible.</footer>
+    </form>
   </main>
+  <footer class="reference-footer" id="footer">
+    <div class="reference-footer__inner"><div><strong>Planeación Hidalgo</strong><p>© 2024 Gobierno del Estado de Hidalgo. Unidad de Planeación y Prospectiva.</p></div><nav aria-label="Enlaces institucionales"><a href="#fuente">Aviso de Privacidad</a><a href="#parametros">Términos y Condiciones</a><a href="#inicio">Mapa de Sitio</a></nav></div>
+  </footer>
   <script>
     (() => {
       const form = document.getElementById('map-form');
@@ -159,7 +238,7 @@
         const url = sheetUrl.value.trim();
         sheetReady = false;
         if (!url) { resetSelect(municipality, 'Primero pega el enlace público'); resetSelect(question, 'Primero pega el enlace público'); return; }
-        status.className = 'status';
+        status.className = 'reference-status';
         status.textContent = 'Leyendo municipios y preguntas de Google Sheets…';
         const body = new URLSearchParams({sheet_url: url});
         const response = await fetch('/api/sheets/inspect', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body});
@@ -170,12 +249,15 @@
         sheetReady = true;
         status.textContent = `${Number(data.records || 0).toLocaleString('es-MX')} registros detectados. Sólo elige municipio y pregunta.`;
       };
-      sheetUrl.addEventListener('change', () => inspectSheet().catch(error => { status.className = 'status error'; status.textContent = error?.message || 'No se pudo leer la hoja.'; }));
-      sheetUrl.addEventListener('blur', () => { if (!sheetReady && sheetUrl.value.trim()) inspectSheet().catch(error => { status.className = 'status error'; status.textContent = error?.message || 'No se pudo leer la hoja.'; }); });
+      const syncSheet = document.getElementById('sync-sheet');
+      const showSheetError = error => { status.className = 'reference-status error'; status.textContent = error?.message || 'No se pudo leer la hoja.'; };
+      if (syncSheet) syncSheet.addEventListener('click', () => inspectSheet().catch(showSheetError));
+      sheetUrl.addEventListener('change', () => inspectSheet().catch(showSheetError));
+      sheetUrl.addEventListener('blur', () => { if (!sheetReady && sheetUrl.value.trim()) inspectSheet().catch(showSheetError); });
       form.addEventListener('submit', async event => {
         event.preventDefault();
         success.hidden = true;
-        status.className = 'status';
+        status.className = 'reference-status';
         status.textContent = 'Descargando la fuente y generando el mapa…';
         submit.disabled = true;
         try {
@@ -189,7 +271,7 @@
           success.hidden = false;
           status.textContent = `${data.source_type === 'google_sheets' ? 'Fuente: Google Sheets público.' : 'Fuente: archivo local.'} El mapa contiene sólo datos agregados.`;
         } catch (error) {
-          status.className = 'status error';
+          status.className = 'reference-status error';
           status.textContent = error?.message || 'No se pudo generar el mapa.';
         } finally { submit.disabled = false; }
       });
