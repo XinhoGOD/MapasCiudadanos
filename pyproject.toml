@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mapa-participacion-ciudadana"
+version = "0.1.0"
+description = "MCP Apps map application for territorial analysis of citizen participation surveys."
+requires-python = ">=3.12"
+dependencies = [
+  "mcp>=1.26.0",
+  "starlette>=0.37.0",
+  "uvicorn>=0.30.0",
+  "python-multipart>=0.0.9",
+  "pandas>=2.2.0",
+  "openpyxl>=3.1.0",
+  "xlrd>=2.0.1",
+  "rapidfuzz>=3.0.0",
+  "pyproj>=3.6.0",
+]
+
+[project.optional-dependencies]
+gis = ["geopandas>=1.0.0", "shapely>=2.0.0", "pyproj>=3.6.0", "pyshp>=3.0.0"]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]

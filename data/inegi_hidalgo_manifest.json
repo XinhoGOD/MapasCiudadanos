@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "state": "Hidalgo",
+  "CVE_ENT": "13",
+  "validated_at_utc": "2026-08-10T06:50:12+00:00",
+  "policy": "Sólo polígonos oficiales de INEGI; sin Voronoi, IDW, interpolación ni áreas inferidas.",
+  "runtime_paths": {
+    "catalog": "data/geography.catalog.geojson",
+    "municipal_geography": "data/geography/hidalgo/<CVE_MUN>.geojson"
+  },
+  "sources": [
+    {
+      "name": "INEGI Catálogo Único AGEEML",
+      "url": "https://www.inegi.org.mx/contenidos/app/ageeml/catun_localidad.zip",
+      "archive_sha256": "927609EDBAAE46C7897A6B4995B32861A6A28D277776418F9883E33416955BDA"
+    },
+    {
+      "name": "INEGI Marco Geoestadístico — Gaia",
+      "url": "https://gaia.inegi.org.mx/wscatgeo/v2",
+      "archive_sha256": null
+    },
+    {
+      "name": "INEGI DCAH Hidalgo",
+      "url": "https://www.inegi.org.mx/contenidos/productos/prod_serv/contenidos/espanol/bvinegi/productos/geografia/delimitaciones/794551163078/13_hidalgo.zip",
+      "archive_sha256": "05EAA9AFB6D0E24A1FFBBAC3A06A241507964505DD0204D47367B1618CE64CEF"
+    }
+  ],
+  "counts": {
+    "municipalities": 84,
+    "catalog_locality_points": 5291,
+    "locality_polygons": 2534,
+    "settlement_polygons": 3843,
+    "total_official_polygons": 6377
+  },
+  "backend_dataset_sha256": "56F481122FAC5CDCCF3409CEC7166E33C95D62E08C85A79FF18F0035216FAC5E"
+}

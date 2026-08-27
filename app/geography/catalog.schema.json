@@ -1,0 +1,5 @@
+{
+  "type": "FeatureCollection",
+  "properties": {"source": "INEGI-derived official catalog", "note": "Replace with a reviewed catalog before production use."},
+  "features": []
+}

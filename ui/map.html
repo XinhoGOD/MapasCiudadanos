@@ -1,0 +1,1038 @@
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    font-family: "Noto Sans", "Segoe UI", Arial, sans-serif;
+    --guinda: #691c32;
+    --guinda-oscuro: #4c1526;
+    --verde: #235b4e;
+    --verde-oscuro: #163f36;
+    --dorado: #bc955b;
+    --gris: #98989a;
+    --linea: #d8d2c8;
+    --tinta: #252525;
+    --muted: #6f6a65;
+    --panel: #fff;
+    --sin-datos: #d9dfdc;
+    --monte: #dfeae2;
+    --cero: #f5efe5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--tinta); background: transparent; }
+  button, select { font: inherit; }
+  .institutional { max-width: 1120px; margin: 0 auto; padding: 14px 16px 24px; }
+  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 15px 17px 14px; color: #fff; background: var(--guinda); border-bottom: 5px solid var(--verde); }
+  .brand { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .9; }
+  h1 { margin: 4px 0 0; font-size: 22px; line-height: 1.18; font-weight: 500; }
+  .municipality { font-size: 14px; font-weight: 600; text-align: right; }
+  .municipality small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; opacity: .8; }
+  .notice { margin-top: 12px; padding: 9px 11px; color: var(--verde-oscuro); background: #e8f0ec; border-left: 4px solid var(--verde); font-size: 11px; line-height: 1.45; }
+  .upload-panel { margin-top: 12px; padding: 12px; border: 1px solid var(--linea); background: var(--panel); }
+  .upload-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .upload-title { color: var(--guinda); font-size: 13px; font-weight: 650; }
+  .upload-status { color: var(--muted); font-size: 11px; text-align: right; }
+  .upload-error { color: #8b2e37; }
+  .upload-controls { display: grid; grid-template-columns: auto minmax(130px,.7fr) minmax(220px,1.5fr) minmax(170px,1fr) auto; gap: 8px; align-items: end; margin-top: 10px; }
+  .upload-field { min-width: 0; }
+  .upload-field label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 9px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; }
+  .upload-field select { width: 100%; min-height: 32px; padding: 5px 7px; color: var(--tinta); background: #fff; border: 1px solid #b9b1a9; border-radius: 3px; font-size: 11px; }
+  .upload-action { min-height: 32px; padding: 6px 11px; color: #fff; background: var(--guinda); border: 1px solid var(--guinda); border-radius: 3px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+  .upload-action:hover { background: var(--guinda-oscuro); }
+  .upload-help { margin-top: 7px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+  .map-frame { margin-top: 12px; border: 1px solid var(--linea); background: var(--panel); }
+  .map-toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 9px 10px; background: #fbfaf8; border-bottom: 1px solid var(--linea); }
+  .map-toolbar button { padding: 5px 9px; color: var(--guinda); background: #fff; border: 1px solid #b9b1a9; border-radius: 3px; cursor: pointer; font-size: 11px; }
+  .map-toolbar button:hover { color: #fff; background: var(--guinda); }
+  .map-toolbar select { max-width: 270px; padding: 5px 7px; color: var(--verde-oscuro); background: #fff; border: 1px solid #b9b1a9; border-radius: 3px; font-size: 10px; }
+  .source { margin-left: auto; color: var(--muted); font-size: 10px; }
+  .map-wrap { position: relative; height: 560px; overflow: hidden; background: #edf2ef; }
+  .map-wrap > svg { position: relative; display: block; width: 100%; height: 100%; }
+  .map-wrap > .map-svg { z-index: 1; }
+  .osm-roads path { fill: none; stroke: #617a70; stroke-linecap: round; stroke-linejoin: round; opacity: .62; vector-effect: non-scaling-stroke; }
+  .osm-roads.is-hidden { display: none; }
+  .osm-attribution { position: absolute; right: 10px; bottom: 8px; z-index: 5; padding: 3px 6px; color: #5e625e; background: rgba(255,255,255,.84); border: 1px solid rgba(180,184,178,.7); font-size: 9px; line-height: 1.2; }
+  .osm-attribution a { color: var(--verde-oscuro); text-decoration: none; }
+  .osm-attribution a:hover { text-decoration: underline; }
+  .map-layer { transform-box: view-box; transform-origin: 50% 50%; transition: transform .18s ease; }
+  .terrain-image { pointer-events: none; opacity: .34; mix-blend-mode: multiply; }
+  .municipal-fill { fill: var(--monte); stroke: none; }
+  .municipal-boundary { fill: none; stroke: #547364; stroke-width: 1.05; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .official-base { fill: var(--sin-datos); fill-opacity: .9; stroke: #91aa9d; stroke-width: .55; vector-effect: non-scaling-stroke; cursor: help; }
+  .official-base.settlement { fill: #c9d9d0; stroke: #6c897b; stroke-width: .7; }
+  .official-data { stroke: #789286; stroke-width: .62; vector-effect: non-scaling-stroke; cursor: pointer; transition: filter .14s, stroke-width .14s; }
+  .official-data.settlement { stroke: #456a5b; stroke-width: .78; }
+  .official-outline { fill: none; stroke: rgba(67,101,84,.62); stroke-width: .45; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .official-outline.settlement { stroke: rgba(255,255,255,.82); stroke-width: .6; }
+  .influence-zone { stroke: rgba(255,255,255,.78); stroke-width: .55; vector-effect: non-scaling-stroke; cursor: pointer; transition: filter .14s, stroke-width .14s; }
+  .site-marker, .territory-point { stroke: #fff; stroke-width: .7; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .territory-label { fill: #242424; font-size: 1.55px; font-weight: 600; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: .5px; stroke-linejoin: round; pointer-events: none; }
+  .dominant-territory { fill-opacity: .16 !important; }
+  .official-data:hover, .official-data:focus, .official-base:hover, .official-base:focus, .influence-zone:hover, .influence-zone:focus { filter: brightness(.86); stroke: var(--guinda); stroke-width: 1.45; outline: none; }
+  .map-key { position: absolute; left: 12px; bottom: 12px; max-width: 270px; min-width: 185px; padding: 9px 10px; color: var(--tinta); background: rgba(255,255,255,.96); border: 1px solid var(--linea); font-size: 10px; box-shadow: 0 3px 12px rgba(31,49,42,.08); }
+  .key-title { margin-bottom: 6px; font-size: 11px; font-weight: 650; }
+  .key-row { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+  .key-note { margin-top: 7px; padding-top: 6px; color: var(--muted); border-top: 1px solid #e7e2db; line-height: 1.35; }
+  .swatch { display: inline-block; flex: 0 0 auto; width: 17px; height: 10px; border: 1px solid rgba(60,55,50,.18); }
+  .tooltip { position: absolute; z-index: 4; max-width: 310px; padding: 9px 10px; color: #fff; background: var(--guinda-oscuro); border-left: 4px solid var(--dorado); font-size: 11px; line-height: 1.45; box-shadow: 0 4px 14px rgba(40,20,24,.25); pointer-events: none; }
+  .tooltip strong { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 650; }
+  .tooltip .tip-kind { color: #ead9bf; }
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); background: var(--panel); border: 1px solid var(--linea); border-top: 0; }
+  .metric { min-width: 0; padding: 11px 12px; border-right: 1px solid var(--linea); }
+  .metric:last-child { border-right: 0; }
+  .metric-value { overflow: hidden; color: var(--guinda); font-size: 19px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .metric-label { margin-top: 2px; color: var(--muted); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+  .below { display: grid; grid-template-columns: 1.1fr .9fr; gap: 12px; margin-top: 12px; }
+  .panel { padding: 12px; background: var(--panel); border: 1px solid #ebe6df; border-top: 3px solid var(--verde); }
+  .panel h2 { margin: 0 0 9px; color: var(--guinda); font-size: 13px; font-weight: 650; }
+  .ranking { display: grid; gap: 2px; }
+  .rank-row { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 7px; align-items: center; padding: 5px 0; border-bottom: 1px solid #ece8e2; font-size: 11px; }
+  .rank-row:last-child { border-bottom: 0; }
+  .rank-no { color: var(--verde); font-weight: 650; }
+  .rank-detail { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
+  .rank-value { color: var(--guinda); font-weight: 650; }
+  .context { color: var(--muted); font-size: 11px; line-height: 1.55; }
+  .warning { margin-top: 7px; padding: 7px 8px; color: #725022; background: #fbf3dc; border-left: 3px solid var(--dorado); font-size: 10px; line-height: 1.4; }
+  .diagnostic { margin-top: 8px; padding-top: 7px; border-top: 1px solid #ece8e2; color: var(--muted); font-size: 10px; line-height: 1.45; }
+  .diagnostic strong, .context strong { color: var(--tinta); }
+  .empty { padding: 44px 14px; color: var(--muted); text-align: center; font-size: 13px; }
+  @media (max-width: 860px) {
+    .upload-controls { grid-template-columns: 1fr 1fr; }
+    .upload-controls .upload-field:nth-of-type(2) { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    .institutional { padding: 10px 10px 18px; }
+    .masthead { align-items: flex-start; flex-direction: column; }
+    .municipality { text-align: left; }
+    .map-wrap { height: 430px; }
+    .metrics { grid-template-columns: repeat(2,1fr); }
+    .metric:nth-child(2) { border-right: 0; }
+    .metric:nth-child(-n+2) { border-bottom: 1px solid var(--linea); }
+    .below { grid-template-columns: 1fr; }
+    .source { width: 100%; margin-left: 0; }
+    .upload-controls { grid-template-columns: 1fr; }
+    .upload-head { align-items: flex-start; flex-direction: column; }
+    .upload-status { text-align: left; }
+  }
+</style>
+<style>
+  :root {
+    --pc-guinda: #7b1e3a;
+    --pc-guinda-deep: #561329;
+    --pc-dorado: #c7a15a;
+    --pc-dorado-soft: #efe4cf;
+    --pc-verde: #1f5a4a;
+    --pc-ink: #262421;
+    --pc-muted: #6f6a64;
+    --pc-line: #ded8cf;
+    --pc-surface: #ffffff;
+    --pc-canvas: #f5f3ef;
+    --pc-soft: #faf8f5;
+    --pc-success: #e7f0ec;
+    --pc-warning: #fff6df;
+    --pc-shadow: 0 18px 45px rgba(66, 41, 48, .08);
+  }
+  body { min-width: 320px; color: var(--pc-ink); background: var(--pc-canvas); }
+  button, select { font: inherit; }
+  button:focus-visible, select:focus-visible { outline: 3px solid rgba(199, 161, 90, .45); outline-offset: 2px; }
+  .app-shell { min-height: 100%; background: var(--pc-canvas); }
+  .site-header { background: var(--pc-surface); border-bottom: 1px solid var(--pc-line); }
+  .site-header__inner { display: flex; align-items: center; justify-content: space-between; gap: 28px; width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 17px 0 15px; }
+  .site-logo { display: block; width: min(391px, 43vw); height: auto; }
+  .site-office { max-width: 360px; padding-left: 24px; border-left: 1px solid var(--pc-line); text-align: right; }
+  .site-office__name { color: var(--pc-guinda); font-size: 14px; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; }
+  .site-office__system { margin-top: 4px; color: var(--pc-muted); font-size: 11px; letter-spacing: .055em; text-transform: uppercase; }
+  .page-container { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 32px 0 38px; }
+  .eyebrow { color: var(--pc-guinda); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+  .landing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(390px, .85fr); gap: clamp(30px, 6vw, 80px); align-items: center; min-height: 610px; padding: 38px 0 56px; }
+  .landing h1 { max-width: 680px; margin: 14px 0 18px; color: var(--pc-guinda-deep); font-size: clamp(34px, 4.6vw, 62px); line-height: 1.04; letter-spacing: -.035em; font-weight: 650; }
+  .landing-copy { color: var(--pc-muted); font-size: 17px; line-height: 1.65; }
+  .landing-copy p { max-width: 650px; margin: 0; }
+  .landing-points { display: grid; gap: 12px; margin-top: 28px; }
+  .landing-point { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 11px; align-items: start; color: var(--pc-ink); font-size: 13px; line-height: 1.45; }
+  .landing-point__mark { display: grid; place-items: center; width: 24px; height: 24px; color: var(--pc-guinda); background: var(--pc-dorado-soft); border-radius: 50%; font-size: 12px; font-weight: 700; }
+  .workflow-panel { background: var(--pc-surface); border: 1px solid var(--pc-line); box-shadow: var(--pc-shadow); }
+  .workflow-panel--compact { margin: 18px 0; box-shadow: none; }
+  .workflow-panel--compact .workflow-panel__head { padding: 14px 16px 12px; }
+  .workflow-panel--compact .workflow-steps { display: none; }
+  .workflow-panel--compact .workflow-panel__body { padding: 14px 16px 15px; }
+  .workflow-panel--compact .file-summary { margin-bottom: 12px; padding: 10px 12px; }
+  .workflow-panel--compact .workflow-actions { margin-top: 12px; }
+  .workflow-panel--compact .privacy-note { display: none; }
+  .workflow-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px 18px; border-bottom: 1px solid var(--pc-line); }
+  .workflow-panel__title { margin: 0; color: var(--pc-guinda-deep); font-size: 18px; line-height: 1.25; font-weight: 650; }
+  .workflow-panel__subtitle { margin-top: 5px; color: var(--pc-muted); font-size: 12px; line-height: 1.45; }
+  .workflow-steps { display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 24px; border-bottom: 1px solid var(--pc-line); }
+  .workflow-step { position: relative; padding: 14px 10px 14px 29px; color: var(--pc-muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .workflow-step::before { position: absolute; left: 0; top: 11px; display: grid; place-items: center; width: 21px; height: 21px; content: attr(data-step); color: var(--pc-muted); border: 1px solid var(--pc-line); border-radius: 50%; font-size: 10px; font-weight: 700; }
+  .workflow-step.is-active { color: var(--pc-guinda); font-weight: 700; }
+  .workflow-step.is-active::before { color: #fff; background: var(--pc-guinda); border-color: var(--pc-guinda); }
+  .workflow-step.is-complete::before { content: "✓"; color: #fff; background: var(--pc-verde); border-color: var(--pc-verde); }
+  .workflow-panel__body { padding: 24px; }
+  .upload-drop { display: grid; place-items: center; min-height: 190px; padding: 28px; text-align: center; background: var(--pc-soft); border: 1px dashed #b9afa5; }
+  .upload-drop__symbol { display: grid; place-items: center; width: 54px; height: 54px; margin-bottom: 14px; color: var(--pc-guinda); background: var(--pc-dorado-soft); border-radius: 50%; font-size: 25px; line-height: 1; }
+  .upload-drop strong { display: block; color: var(--pc-ink); font-size: 15px; }
+  .upload-drop p { max-width: 360px; margin: 7px auto 17px; color: var(--pc-muted); font-size: 12px; line-height: 1.5; }
+  .file-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; padding: 14px 16px; background: var(--pc-soft); border-left: 4px solid var(--pc-verde); }
+  .file-summary__name { overflow: hidden; color: var(--pc-ink); font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+  .file-summary__meta { margin-top: 3px; color: var(--pc-muted); font-size: 11px; }
+  .workflow-fields { display: grid; grid-template-columns: minmax(160px, .65fr) minmax(250px, 1.4fr) minmax(280px, 1.2fr); gap: 14px; align-items: end; }
+  .workflow-panel:not(.workflow-panel--compact) .workflow-fields { grid-template-columns: 1fr; }
+  .workflow-panel:not(.workflow-panel--compact) .workflow-actions { align-items: flex-start; flex-direction: column; }
+  .workflow-panel:not(.workflow-panel--compact) .upload-status { text-align: left; }
+  .field { min-width: 0; }
+  .field label { display: block; margin-bottom: 6px; color: var(--pc-guinda-deep); font-size: 10px; font-weight: 700; letter-spacing: .065em; text-transform: uppercase; }
+  .field select { width: 100%; min-height: 42px; padding: 8px 34px 8px 10px; color: var(--pc-ink); background: #fff; border: 1px solid #bdb5ac; border-radius: 2px; font-size: 12px; }
+  .symbolization-summary { display: flex; align-items: center; min-height: 42px; padding: 8px 10px; color: var(--pc-verde); background: var(--pc-success); border: 1px solid #bfd1c8; font-size: 12px; line-height: 1.35; }
+  .symbolization-summary span { display: block; margin-top: 2px; color: var(--pc-muted); font-size: 10px; }
+  .workflow-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+  .workflow-actions__main { display: flex; align-items: center; gap: 9px; }
+  .button-primary, .button-secondary, .button-quiet { min-height: 40px; padding: 9px 17px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: 650; }
+  .button-primary { color: #fff; background: var(--pc-guinda); border: 1px solid var(--pc-guinda); }
+  .button-primary:hover { background: var(--pc-guinda-deep); }
+  .button-primary:disabled { cursor: not-allowed; opacity: .46; }
+  .button-secondary { color: var(--pc-guinda); background: #fff; border: 1px solid #b9afa5; }
+  .button-secondary:hover { background: var(--pc-soft); }
+  .button-quiet { min-height: auto; padding: 5px 2px; color: var(--pc-muted); background: transparent; border: 0; text-decoration: underline; text-underline-offset: 3px; }
+  .button-quiet:hover { color: var(--pc-guinda); }
+  .upload-status { color: var(--pc-muted); font-size: 11px; line-height: 1.45; text-align: right; }
+  .upload-status.is-success { color: var(--pc-verde); }
+  .upload-status.upload-error { color: #942e3f; }
+  .privacy-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 15px; color: var(--pc-muted); font-size: 10px; line-height: 1.45; }
+  .privacy-note::before { content: "●"; color: var(--pc-verde); font-size: 8px; transform: translateY(2px); }
+  .geography-check { margin-top: 13px; color: var(--pc-muted); font-size: 11px; line-height: 1.5; }
+  .geography-check strong { color: var(--pc-verde); font-weight: 700; }
+  .geography-check .needs-review { color: var(--pc-guinda); }
+  .institution-strip { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--pc-line); border-bottom: 1px solid var(--pc-line); }
+  .institution-strip__item { padding: 20px 22px; border-right: 1px solid var(--pc-line); }
+  .institution-strip__item:last-child { border-right: 0; }
+  .institution-strip__item strong { display: block; color: var(--pc-guinda); font-size: 12px; }
+  .institution-strip__item span { display: block; margin-top: 5px; color: var(--pc-muted); font-size: 11px; line-height: 1.45; }
+  .result-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 4px 0 3px; }
+  .result-heading h1 { margin: 8px 0 0; color: var(--pc-guinda-deep); font-size: clamp(28px, 3vw, 42px); line-height: 1.08; font-weight: 650; letter-spacing: -.025em; }
+  .result-place { flex: 0 0 auto; padding-left: 24px; border-left: 1px solid var(--pc-line); text-align: right; }
+  .result-place__name { color: var(--pc-guinda); font-size: 18px; font-weight: 700; }
+  .result-place__source { margin-top: 4px; color: var(--pc-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+  .notice { margin: 18px 0 0; padding: 12px 14px; color: var(--pc-verde); background: var(--pc-success); border-left: 4px solid var(--pc-verde); font-size: 11px; line-height: 1.5; }
+  .map-frame { margin-top: 16px; overflow: hidden; background: var(--pc-surface); border: 1px solid var(--pc-line); box-shadow: var(--pc-shadow); }
+  .map-toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 11px 12px; background: var(--pc-soft); border-bottom: 1px solid var(--pc-line); }
+  .map-toolbar button { min-height: 34px; padding: 6px 10px; color: var(--pc-guinda); background: #fff; border: 1px solid #b9afa5; border-radius: 2px; cursor: pointer; font-size: 11px; }
+  .map-toolbar button:hover { color: #fff; background: var(--pc-guinda); }
+  .map-toolbar select { min-height: 34px; max-width: 285px; padding: 6px 30px 6px 8px; color: var(--pc-verde); background: #fff; border: 1px solid #b9afa5; border-radius: 2px; font-size: 10px; }
+  .source { margin-left: auto; color: var(--pc-muted); font-size: 10px; }
+  .map-wrap { height: 620px; background: #edf1ef; }
+  .municipal-fill { fill-opacity: .27; }
+  .osm-roads path { stroke: #547267; opacity: .58; }
+  .osm-attribution { color: var(--pc-muted); background: rgba(255,255,255,.88); border-color: var(--pc-line); }
+  .osm-attribution a { color: var(--pc-verde); }
+  .territory-label { font-size: 1.7px; }
+  .municipal-boundary { stroke: var(--pc-guinda); }
+  .official-base { stroke: var(--pc-verde); }
+  .official-data.settlement { stroke: var(--pc-verde); }
+  .influence-zone:hover, .official-data:hover, .official-base:hover { stroke: var(--pc-guinda); }
+  .map-key { left: 16px; bottom: 16px; padding: 11px 12px; background: rgba(255,255,255,.97); border: 1px solid var(--pc-line); box-shadow: 0 8px 24px rgba(35,31,28,.1); }
+  .key-title { color: var(--pc-guinda-deep); }
+  .tooltip { background: var(--pc-guinda-deep); border-left-color: var(--pc-dorado); }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--pc-surface); border: 1px solid var(--pc-line); border-top: 0; }
+  .metric { padding: 16px 18px; border-right: 1px solid var(--pc-line); }
+  .metric-value { color: var(--pc-guinda); font-size: 24px; font-weight: 650; }
+  .metric-label { color: var(--pc-muted); font-size: 9px; }
+  .below { display: grid; grid-template-columns: 1.08fr .92fr; gap: 18px; margin-top: 18px; }
+  .panel { padding: 20px; background: var(--pc-surface); border: 1px solid var(--pc-line); border-top: 3px solid var(--pc-verde); }
+  .panel h2 { color: var(--pc-guinda-deep); font-size: 15px; }
+  .rank-row { padding: 8px 0; border-bottom-color: #ebe6df; }
+  .rank-no { color: var(--pc-verde); }
+  .rank-value { color: var(--pc-guinda); }
+  .warning { background: var(--pc-warning); border-left-color: var(--pc-dorado); }
+  .site-footer { margin-top: 34px; padding-top: 18px; color: var(--pc-muted); border-top: 1px solid var(--pc-line); font-size: 10px; line-height: 1.55; }
+  .site-footer strong { color: var(--pc-guinda); }
+  @media (max-width: 940px) {
+    .landing { grid-template-columns: 1fr; min-height: 0; padding-top: 30px; }
+    .landing-copy p { max-width: none; }
+    .workflow-fields { grid-template-columns: 1fr 1fr; }
+    .workflow-fields .field:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
+    .map-wrap { height: 540px; }
+  }
+  @media (max-width: 720px) {
+    .site-header__inner, .page-container { width: min(100% - 24px, 1220px); }
+    .site-header__inner { align-items: flex-start; flex-direction: column; gap: 12px; padding: 12px 0; }
+    .site-logo { width: min(360px, 100%); }
+    .site-office { max-width: none; padding: 10px 0 0; border-top: 1px solid var(--pc-line); border-left: 0; text-align: left; }
+    .page-container { padding-top: 22px; }
+    .landing { gap: 28px; padding: 22px 0 34px; }
+    .landing h1 { font-size: clamp(32px, 11vw, 46px); }
+    .landing-copy { font-size: 15px; }
+    .workflow-panel__head, .workflow-panel__body { padding: 18px; }
+    .workflow-steps { padding: 0 18px; }
+    .workflow-step { padding-left: 0; text-align: center; }
+    .workflow-step::before { position: static; margin: 0 auto 6px; }
+    .workflow-fields { grid-template-columns: 1fr; }
+    .workflow-fields .field:nth-child(2) { grid-column: auto; grid-row: auto; }
+    .workflow-actions, .file-summary { align-items: stretch; flex-direction: column; }
+    .workflow-actions__main { display: grid; grid-template-columns: 1fr; }
+    .workflow-actions__main button { width: 100%; }
+    .upload-status { text-align: left; }
+    .institution-strip { grid-template-columns: 1fr; }
+    .institution-strip__item { border-right: 0; border-bottom: 1px solid var(--pc-line); }
+    .institution-strip__item:last-child { border-bottom: 0; }
+    .result-heading { align-items: flex-start; flex-direction: column; }
+    .result-place { padding: 0; border: 0; text-align: left; }
+    .map-wrap { height: 450px; }
+    .map-toolbar select { width: 100%; max-width: none; }
+    .source { width: 100%; margin: 3px 0 0; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .metric:nth-child(2) { border-right: 0; }
+    .metric:nth-child(-n+2) { border-bottom: 1px solid var(--pc-line); }
+    .below { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 420px) {
+    .workflow-panel__head { flex-direction: column; }
+    .workflow-steps { padding: 0 8px; }
+    .workflow-step { font-size: 8px; }
+    .map-wrap { height: 410px; }
+    .map-key { right: 10px; left: 10px; bottom: 10px; max-width: none; }
+  }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('root');
+  const host = typeof window !== 'undefined' ? window.openai : undefined;
+  const publicMap = Boolean(host?.publicMap);
+  const institutionLogo = 'data:image/png;base64,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';
+  document.title = 'Mapa de Participación Ciudadana · Hidalgo';
+  let result = host?.toolOutput || host?.toolResult || null;
+  let coverageMode = 'official';
+  let zoom = 1;
+  let selectedFile = null;
+  let inspection = null;
+  let questionValue = '';
+  let answerValue = '';
+  let municipalityValue = '';
+  let metricMode = 'percentage';
+  let uploadStatus = '';
+  let osmEnabled = true;
+  let osmRoads = null;
+  let osmRoadsLoading = false;
+
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+  const payload = value => value?.structuredContent || value?.result || value || {};
+  const number = value => Number(value || 0).toLocaleString('es-MX');
+  const percent = value => Number(value || 0).toLocaleString('es-MX', {maximumFractionDigits: 1});
+  const toolCall = (name, args) => host?.callTool
+    ? host.callTool(name, args)
+    : window.localPreview?.callTool
+      ? window.localPreview.callTool(name, args)
+      : Promise.reject(new Error('No hay un conector disponible para procesar el archivo.'));
+  const selectFiles = () => host?.selectFiles
+    ? host.selectFiles()
+    : window.localPreview?.selectFiles
+      ? window.localPreview.selectFiles()
+      : Promise.reject(new Error('No hay un selector de archivos disponible.'));
+
+  const formatFileSize = value => {
+    const bytes = Number(value || 0);
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toLocaleString('es-MX', {maximumFractionDigits: 1})} MB`;
+  };
+
+  function institutionalHeader() {
+    return `<header class="site-header">
+      <div class="site-header__inner">
+        <img class="site-logo" src="${institutionLogo}" alt="Hidalgo Primero el Pueblo. Planeación, Unidad de Planeación y Prospectiva">
+        <div class="site-office"><div class="site-office__name">Dirección de Participación Ciudadana</div><div class="site-office__system">Sistema de análisis territorial</div></div>
+      </div>
+    </header>`;
+  }
+
+  function institutionalFooter() {
+    return `<footer class="site-footer"><strong>Dirección de Participación Ciudadana</strong> · Unidad de Planeación y Prospectiva<br>Cartografía de Hidalgo basada en fuentes oficiales de INEGI. Los resultados se presentan exclusivamente de forma agregada.</footer>`;
+  }
+
+  function uploadPanel(compact = false) {
+    const questions = inspection?.schema?.questions || [];
+    const municipalities = inspection?.municipalities || [];
+    const geography = inspection?.geography?.summary || null;
+    const categories = (inspection?.options || []).map(item => String(item.answer || '').trim()).filter(Boolean);
+    const categorySummary = categories.length
+      ? `${categories.length} categorías detectadas: ${categories.map(category => esc(category)).join(' · ')}`
+      : 'Se incluirán todas las respuestas válidas de la pregunta.';
+    const questionOptions = questions.map(item => `<option value="${esc(item.name)}" ${item.name === questionValue ? 'selected' : ''}>${esc(item.name)}</option>`).join('');
+    const municipalityOptions = municipalities.map(item => `<option value="${esc(item)}" ${item === municipalityValue ? 'selected' : ''}>${esc(item)}</option>`).join('');
+    const stage = result?.map_type ? 3 : inspection ? 2 : 1;
+    const statusClass = uploadStatus.startsWith('Error') ? 'upload-error' : /listo|correctamente/i.test(uploadStatus) ? 'is-success' : '';
+    const readyToGenerate = Boolean(selectedFile && municipalityValue && questionValue && answerValue === '__all__');
+    const geographyCheck = geography
+      ? `<div class="geography-check"><strong>Validación geográfica:</strong> ${number(geography.official_polygons)} con polígono oficial · ${number(geography.analytical_sites)} sólo puntuales · ${percent(geography.record_coverage_percentage)}% de registros representables${geography.review_required || geography.unmatched ? ` · <span class="needs-review">${number(Number(geography.review_required || 0) + Number(geography.unmatched || 0))} nombre(s) por revisar</span>` : ''}.</div>`
+      : '';
+    return `<section class="workflow-panel ${compact ? 'workflow-panel--compact' : ''}" aria-labelledby="workflow-title">
+      <div class="workflow-panel__head">
+        <div><h2 class="workflow-panel__title" id="workflow-title">${compact ? 'Fuente y variables del mapa' : 'Carga tu base de resultados'}</h2><div class="workflow-panel__subtitle">Excel o CSV con municipio, localidad/colonia y respuestas categóricas.</div></div>
+        <div class="upload-status ${statusClass}" aria-live="polite">${esc(uploadStatus || 'Listo para recibir un archivo.')}</div>
+      </div>
+      <div class="workflow-steps" aria-label="Progreso">
+        <div class="workflow-step ${stage === 1 ? 'is-active' : 'is-complete'}" data-step="1">Cargar</div>
+        <div class="workflow-step ${stage === 2 ? 'is-active' : stage > 2 ? 'is-complete' : ''}" data-step="2">Configurar</div>
+        <div class="workflow-step ${stage === 3 ? 'is-active' : ''}" data-step="3">Visualizar</div>
+      </div>
+      <div class="workflow-panel__body">
+        ${!inspection ? `<div class="upload-drop"><div class="upload-drop__symbol" aria-hidden="true">↑</div><strong>Selecciona tu archivo de encuesta</strong><p>La estructura se detectará automáticamente. Se aceptan archivos .xlsx, .xls y .csv de hasta 50 MB.</p><button type="button" class="button-primary" id="load-survey">Seleccionar Excel o CSV</button></div>` : `
+          <div class="file-summary"><div><div class="file-summary__name">${esc(selectedFile?.name || inspection?.source_name || 'Archivo cargado')}</div><div class="file-summary__meta">${number(inspection?.records)} registros detectados${selectedFile?.size ? ` · ${formatFileSize(selectedFile.size)}` : ''}</div></div><button type="button" class="button-secondary" id="load-survey">Cambiar archivo</button></div>
+          <div class="workflow-fields">
+            <div class="field"><label for="upload-municipality">Municipio</label><select id="upload-municipality"><option value="">Selecciona un municipio</option>${municipalityOptions}</select></div>
+            <div class="field"><label for="upload-question">Pregunta</label><select id="upload-question"><option value="">Selecciona una pregunta</option>${questionOptions}</select></div>
+            <div class="field"><label>Simbología del mapa</label><div class="symbolization-summary">Todas las respuestas · composición (%)<br><span>${categorySummary}</span></div></div>
+          </div>
+          ${geographyCheck}
+          <div class="workflow-actions"><div class="workflow-actions__main"><button type="button" class="button-primary" id="generate-survey-map" ${readyToGenerate ? '' : 'disabled'}>Generar mapa</button><button type="button" class="button-quiet" id="reset-analysis">Nueva carga</button></div><div class="upload-status">La vista principal agrupa todas las respuestas dentro de cada territorio; el ancho de cada segmento representa su porcentaje.</div></div>`}
+        <div class="privacy-note">El sistema procesa agregaciones territoriales; no muestra filas individuales ni datos personales.</div>
+      </div>
+    </section>`;
+  }
+
+  async function loadQuestionOptions() {
+    if (!questionValue || !municipalityValue || !selectedFile) {
+      if (inspection) inspection.options = [];
+      answerValue = '';
+      return;
+    }
+    const options = payload(await toolCall('get_question_options', {file: selectedFile, municipality: municipalityValue, question: questionValue}));
+    inspection.options = options.options || [];
+    answerValue = '__all__';
+  }
+
+  async function loadGeographyValidation() {
+    if (!questionValue || !municipalityValue || !selectedFile) {
+      if (inspection) inspection.geography = null;
+      return;
+    }
+    inspection.geography = payload(await toolCall('resolve_geography', {
+      file: selectedFile,
+      municipality: municipalityValue,
+      question: questionValue
+    }));
+  }
+
+  async function refreshConfiguration() {
+    await loadQuestionOptions();
+    await loadGeographyValidation();
+  }
+
+  function wireUpload() {
+    const loadButton = root.querySelector('#load-survey');
+    if (!loadButton) return;
+
+    const resetButton = root.querySelector('#reset-analysis');
+    if (resetButton) resetButton.onclick = () => {
+      result = null;
+      selectedFile = null;
+      inspection = null;
+      questionValue = '';
+      answerValue = '';
+      municipalityValue = '';
+      metricMode = 'percentage';
+      uploadStatus = '';
+      coverageMode = 'official';
+      zoom = 1;
+      render();
+    };
+
+    loadButton.onclick = async () => {
+      try {
+        uploadStatus = 'Abriendo el selector de archivos…';
+        render();
+        const files = await selectFiles();
+        if (!files?.length) {
+          uploadStatus = 'No se seleccionó ningún archivo.';
+          render();
+          return;
+        }
+        selectedFile = files[0];
+        result = null;
+        inspection = null;
+        questionValue = '';
+        answerValue = '';
+        municipalityValue = '';
+        uploadStatus = 'Analizando columnas y registros…';
+        render();
+        inspection = payload(await toolCall('inspect_survey_file', {file: selectedFile}));
+        const questions = inspection.schema?.questions || [];
+        const municipalities = inspection.municipalities || [];
+        questionValue = questions[0]?.name || '';
+        municipalityValue = municipalities.length === 1 ? municipalities[0] : '';
+        answerValue = '';
+        if (municipalityValue) await refreshConfiguration();
+        uploadStatus = municipalityValue
+          ? 'Archivo listo. La vista agrupada está seleccionada.'
+          : 'Archivo listo. Selecciona el municipio que quieres representar.';
+        render();
+      } catch (error) {
+        uploadStatus = `Error: ${error?.message || error}`;
+        render();
+      }
+    };
+
+    const municipalitySelect = root.querySelector('#upload-municipality');
+    if (municipalitySelect) municipalitySelect.onchange = async event => {
+      municipalityValue = event.target.value;
+      answerValue = '';
+      if (inspection) {
+        inspection.options = [];
+        inspection.geography = null;
+      }
+      try {
+        uploadStatus = municipalityValue ? 'Validando respuestas y localidades…' : 'Selecciona un municipio.';
+        render();
+        if (municipalityValue) await refreshConfiguration();
+        uploadStatus = municipalityValue ? 'Municipio validado. Revisa la configuración.' : 'Selecciona un municipio.';
+      } catch (error) {
+        uploadStatus = `Error: ${error?.message || error}`;
+      }
+      render();
+    };
+    const questionSelect = root.querySelector('#upload-question');
+    if (questionSelect) questionSelect.onchange = async event => {
+      questionValue = event.target.value;
+      answerValue = '__all__';
+      try {
+        uploadStatus = 'Agrupando respuestas…';
+        render();
+        await refreshConfiguration();
+        uploadStatus = 'Respuestas y localidades validadas.';
+      } catch (error) {
+        uploadStatus = `Error: ${error?.message || error}`;
+      }
+      render();
+    };
+    const generateButton = root.querySelector('#generate-survey-map');
+    if (generateButton) generateButton.onclick = async () => {
+      if (!selectedFile || !municipalityValue || !questionValue || answerValue !== '__all__') {
+        uploadStatus = 'Error: selecciona archivo, municipio y pregunta.';
+        render();
+        return;
+      }
+      try {
+        uploadStatus = 'Agrupando todas las respuestas por localidad y construyendo la simbología…';
+        render();
+        const args = {file: selectedFile, municipality: municipalityValue, question: questionValue};
+        result = payload(await toolCall('generate_composition_map', args));
+        uploadStatus = 'Mapa generado correctamente.';
+        coverageMode = 'official';
+        zoom = 1;
+        render();
+      } catch (error) {
+        uploadStatus = `Error: ${error?.message || error}`;
+        render();
+      }
+    };
+  }
+
+  const collectCoordinates = (value, output = []) => {
+    if (Array.isArray(value) && value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number') output.push([value[0], value[1]]);
+    else if (Array.isArray(value)) value.forEach(item => collectCoordinates(item, output));
+    return output;
+  };
+  const asCollection = features => ({type: 'FeatureCollection', features: features.filter(feature => feature?.geometry)});
+
+  function projectionFor(background, territory) {
+    const fitFeatures = background.length ? background : territory;
+    const collection = asCollection(fitFeatures);
+    if (window.d3?.geoMercator && collection.features.length) return window.d3.geoMercator().fitExtent([[6, 6], [94, 94]], collection);
+    const all = collection.features.flatMap(feature => collectCoordinates(feature.geometry.coordinates));
+    if (!all.length) return () => [50, 50];
+    const mercatorY = latitude => Math.log(Math.tan(Math.PI / 4 + Number(latitude) * Math.PI / 360));
+    const projected = all.map(([longitude, latitude]) => [Number(longitude), mercatorY(latitude)]);
+    const xs = projected.map(point => point[0]);
+    const ys = projected.map(point => point[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    const dx = Math.max(maxX - minX, .0001), dy = Math.max(maxY - minY, .0001);
+    const scale = Math.min(88 / dx, 88 / dy);
+    const width = dx * scale, height = dy * scale;
+    const offsetX = (100 - width) / 2, offsetY = (100 - height) / 2;
+    return ([longitude, latitude]) => [offsetX + (Number(longitude) - minX) * scale, offsetY + (maxY - mercatorY(latitude)) * scale];
+  }
+
+  function osmRoadsSvg(roads, projection, clipPaths, enabled) {
+    const features = roads?.features || [];
+    if (!enabled || !features.length) return '<g class="osm-roads is-hidden" aria-hidden="true"></g>';
+    const widthFor = highway => ({motorway: .42, trunk: .38, primary: .32, secondary: .27, tertiary: .21, unclassified: .14, residential: .12, living_street: .1, service: .075, track: .065, path: .05, footway: .045}[highway] || .09);
+    const paths = features.map(feature => {
+      const highway = String(feature.properties?.highway || '');
+      const width = widthFor(highway);
+      return `<path d="${pathFor(feature.geometry, projection)}" stroke-width="${width}" data-highway="${esc(highway)}"></path>`;
+    }).join('');
+    return `<g class="osm-roads" clip-path="url(#municipality-clip)" role="img" aria-label="Líneas viales de OpenStreetMap recortadas al municipio">${paths}</g>`;
+  }
+
+  async function ensureOsmRoads() {
+    if (!publicMap || !host?.publicMapOsmRoadsUrl || !osmEnabled || osmRoads !== null || osmRoadsLoading) return;
+    osmRoadsLoading = true;
+    try {
+      const response = await fetch(host.publicMapOsmRoadsUrl, {cache: 'force-cache'});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      osmRoads = await response.json();
+    } catch (_) {
+      osmRoads = {type: 'FeatureCollection', features: [], error: 'No fue posible cargar las líneas viales.'};
+    } finally {
+      osmRoadsLoading = false;
+      render();
+    }
+  }
+
+  function pathFor(geometry, projection) {
+    if (!geometry) return '';
+    if (window.d3?.geoPath) return window.d3.geoPath(projection)({type: 'Feature', geometry});
+    const ringPath = ring => !ring?.length ? '' : `M${ring.map(point => projection(point).join(',')).join('L')}Z`;
+    if (geometry.type === 'Polygon') return geometry.coordinates.map(ringPath).join('');
+    if (geometry.type === 'MultiPolygon') return geometry.coordinates.flatMap(polygon => polygon.map(ringPath)).join('');
+    return '';
+  }
+
+  function centroidFor(geometry, projection) {
+    if (!geometry) return null;
+    if (window.d3?.geoCentroid) {
+      const centroid = projection(window.d3.geoCentroid({type: 'Feature', geometry}));
+      if (centroid?.every(Number.isFinite)) return centroid;
+    }
+    const coordinates = collectCoordinates(geometry.coordinates);
+    if (!coordinates.length) return null;
+    const average = coordinates.reduce((point, coordinate) => [point[0] + coordinate[0], point[1] + coordinate[1]], [0, 0]);
+    return projection([average[0] / coordinates.length, average[1] / coordinates.length]);
+  }
+
+  function terrainImageUrl(features) {
+    const coordinates = features.flatMap(feature => collectCoordinates(feature.geometry?.coordinates));
+    if (!coordinates.length) return '';
+    const longitudes = coordinates.map(point => point[0]);
+    const latitudes = coordinates.map(point => point[1]);
+    const minLongitude = Math.min(...longitudes);
+    const maxLongitude = Math.max(...longitudes);
+    const minLatitude = Math.max(-85, Math.min(...latitudes));
+    const maxLatitude = Math.min(85, Math.max(...latitudes));
+    const padding = .015;
+    const params = new URLSearchParams({
+      bbox: `${minLongitude - padding},${minLatitude - padding},${maxLongitude + padding},${maxLatitude + padding}`,
+      bboxSR: '4326',
+      imageSR: '4326',
+      size: '1400,1000',
+      format: 'jpg',
+      f: 'image',
+      transparent: 'false'
+    });
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?${params.toString()}`;
+  }
+
+  function clipHalfPlane(polygon, site, other) {
+    if (!polygon.length) return [];
+    const a = 2 * (other[0] - site[0]);
+    const b = 2 * (other[1] - site[1]);
+    const c = other[0] * other[0] + other[1] * other[1] - site[0] * site[0] - site[1] * site[1];
+    const inside = point => a * point[0] + b * point[1] <= c + 1e-8;
+    const intersection = (start, end) => {
+      const denominator = a * (end[0] - start[0]) + b * (end[1] - start[1]);
+      if (Math.abs(denominator) < 1e-12) return end;
+      const t = (c - a * start[0] - b * start[1]) / denominator;
+      return [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
+    };
+    const output = [];
+    for (let index = 0; index < polygon.length; index += 1) {
+      const start = polygon[index];
+      const end = polygon[(index + 1) % polygon.length];
+      const startInside = inside(start);
+      const endInside = inside(end);
+      if (startInside && endInside) output.push(end);
+      else if (startInside && !endInside) output.push(intersection(start, end));
+      else if (!startInside && endInside) output.push(intersection(start, end), end);
+    }
+    return output;
+  }
+
+  function influenceCells(sites, projection) {
+    const seen = new Map();
+    const prepared = sites.map((site, sourceIndex) => {
+      const projected = projection([Number(site.longitude), Number(site.latitude)]);
+      if (!projected || !projected.every(Number.isFinite)) return null;
+      const coordinateKey = projected.map(value => value.toFixed(5)).join(':');
+      const duplicate = seen.get(coordinateKey) || 0;
+      seen.set(coordinateKey, duplicate + 1);
+      return {site, sourceIndex, point: [projected[0] + duplicate * .015, projected[1] + duplicate * .015]};
+    }).filter(Boolean);
+    return prepared.map((item, index) => {
+      let polygon = [[0, 0], [100, 0], [100, 100], [0, 100]];
+      prepared.forEach((other, otherIndex) => {
+        if (otherIndex !== index && polygon.length) polygon = clipHalfPlane(polygon, item.point, other.point);
+      });
+      const path = polygon.length ? `M${polygon.map(point => point.join(',')).join('L')}Z` : '';
+      return {...item, path};
+    }).filter(item => item.path);
+  }
+
+  const institutionalColors = ['#dce9e4', '#93b5a9', '#bc955b', '#9f5264', '#691c32'];
+  const categoryColors = ['#7b1e3a', '#1f5a4a', '#b38b59', '#4b6682', '#9c5a4f', '#3b806d', '#866b46', '#5a7182'];
+  function frequencyColor(value, max) {
+    const numeric = Number(value || 0);
+    if (numeric === 0) return '#f5efe5';
+    const ratio = numeric / Math.max(1, Number(max || 1));
+    return institutionalColors[Math.min(institutionalColors.length - 1, Math.ceil(ratio * institutionalColors.length) - 1)];
+  }
+  function categoryColor(category, categories) {
+    const index = Math.max(0, categories.indexOf(String(category || '')));
+    return categoryColors[index % categoryColors.length];
+  }
+  function mapValue(properties, data) {
+    if (data.map_type === 'dominant') return Number(properties.total_participations || 0);
+    if (data.map_type === 'frequency' && metricMode === 'percentage') return Number(properties.percentage_locality || 0);
+    return Number(properties.value ?? properties.frequency ?? 0);
+  }
+  function displayMapValue(value, data) {
+    return data.map_type === 'frequency' && metricMode === 'percentage' ? `${percent(value)}%` : number(value);
+  }
+  function paintFor(properties, data, max, gradientId) {
+    if (data.map_type === 'composition') {
+      const categories = data.response_categories || [];
+      const counts = properties.answer_counts || {};
+      const entries = categories.map(category => [category, Number(counts[category] || 0)]).filter(([, count]) => count > 0);
+      const total = entries.reduce((sum, [, count]) => sum + count, 0);
+      const maxTotal = Number(data.metrics?.max_locality_responses || 0);
+      const opacity = .78 + .22 * Math.sqrt(Number(properties.total_participations || 0) / Math.max(1, maxTotal || Number(properties.total_participations || 0)));
+      if (!entries.length || !total) return {fill: '#f5efe5', definition: '', opacity: .72};
+      if (entries.length === 1) return {fill: categoryColor(entries[0][0], categories), definition: '', opacity};
+      let cursor = 0;
+      const stops = entries.map(([category, count]) => {
+        const start = cursor / total * 100;
+        cursor += count;
+        const end = cursor / total * 100;
+        const color = categoryColor(category, categories);
+        return `<stop offset="${start}%" stop-color="${color}"></stop><stop offset="${end}%" stop-color="${color}"></stop>`;
+      }).join('');
+      return {fill: `url(#${gradientId})`, definition: `<linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="0">${stops}</linearGradient>`, opacity};
+    }
+    if (data.map_type !== 'dominant') return {fill: frequencyColor(mapValue(properties, data), max), definition: '', opacity: 1};
+    const categories = data.response_categories || [];
+    const dominant = String(properties.dominant_answer || '');
+    const total = Number(properties.total_participations || 0);
+    if (!dominant || !total) return {fill: '#f5efe5', definition: '', opacity: .72};
+    const maxTotal = Number(data.metrics?.max_locality_responses || total);
+    const opacity = .86 + .14 * Math.sqrt(total / Math.max(1, maxTotal));
+    return {fill: categoryColor(dominant, categories), definition: '', opacity};
+  }
+
+  function answerCountsHtml(properties, data) {
+    const counts = properties.answer_counts || {};
+    const categories = data.response_categories || Object.keys(counts);
+    const total = Number(properties.total_response_mentions || properties.total_participations || Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0));
+    return categories.filter(category => Number(counts[category] || 0) > 0).map(category => {
+      const count = Number(counts[category] || 0);
+      const share = total ? count / total * 100 : 0;
+      return `${esc(category)}: ${number(count)} (${percent(share)}%)`;
+    }).join('<br>');
+  }
+
+  function showTooltip(element, html) {
+    const tip = root.querySelector('#tip');
+    const wrap = root.querySelector('.map-wrap');
+    if (!tip || !wrap) return;
+    tip.hidden = false;
+    tip.innerHTML = html;
+    const box = wrap.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
+    tip.style.left = `${Math.min(Math.max(rect.left - box.left + 8, 8), Math.max(8, box.width - 320))}px`;
+    tip.style.top = `${Math.max(rect.top - box.top - 8, 8)}px`;
+  }
+
+  function bindMapPaths(baseFeatures, dataFeatures, cells, data) {
+    const tip = root.querySelector('#tip');
+    const hide = () => { if (tip) tip.hidden = true; };
+    root.querySelectorAll('.official-base').forEach(path => {
+      const properties = baseFeatures[Number(path.dataset.index)]?.properties || {};
+      const kind = properties.geometry_kind === 'settlement' ? 'Colonia o asentamiento oficial' : 'Localidad amanzanada oficial';
+      const show = () => showTooltip(path, `<strong>${esc(properties.locality || 'Unidad sin nombre')}</strong><span class="tip-kind">${kind}</span><br>Sin registros vinculados en el Excel<br>Clave: ${esc(properties.official_key || 'No disponible')}`);
+      path.addEventListener('mouseenter', show); path.addEventListener('focus', show);
+      path.addEventListener('mouseleave', hide); path.addEventListener('blur', hide);
+    });
+    root.querySelectorAll('.official-data').forEach(path => {
+      const properties = dataFeatures[Number(path.dataset.index)]?.properties || {};
+      const kind = properties.geometry_kind === 'settlement' ? 'Colonia o asentamiento oficial' : 'Localidad amanzanada oficial';
+      const mix = answerCountsHtml(properties, data);
+      const frequencyLine = data.map_type === 'composition' ? 'Composición porcentual de respuestas' : data.map_type === 'dominant' ? `Respuesta predominante: ${esc(properties.dominant_answer || 'No disponible')} (${number(properties.frequency)})` : `Frecuencia de “${esc(data.answer)}”: ${number(properties.value ?? properties.frequency)}`;
+      const distribution = data.map_type === 'composition' ? `Menciones agrupadas: ${number(properties.total_response_mentions || properties.frequency)}` : `Porcentaje local: ${number(properties.percentage_locality)}%`;
+      const show = () => showTooltip(path, `<strong>${esc(properties.locality || 'Unidad sin nombre')}</strong><span class="tip-kind">${kind}</span><br>${frequencyLine}<br>Respuestas válidas: ${number(properties.total_participations)}<br>${distribution}${mix ? `<br><br>${mix}` : ''}<br>Clave: ${esc(properties.official_key || 'No disponible')}`);
+      path.addEventListener('mouseenter', show); path.addEventListener('focus', show);
+      path.addEventListener('mouseleave', hide); path.addEventListener('blur', hide);
+    });
+    root.querySelectorAll('.influence-zone').forEach(path => {
+      const site = cells[Number(path.dataset.index)]?.site || {};
+      const mix = answerCountsHtml(site, data);
+      const frequencyLine = data.map_type === 'composition' ? 'Composición porcentual de respuestas' : data.map_type === 'dominant' ? `Respuesta predominante: ${esc(site.dominant_answer || 'No disponible')} (${number(site.frequency)})` : `Frecuencia de “${esc(data.answer)}”: ${number(site.value ?? site.frequency)}`;
+      const distribution = data.map_type === 'composition' ? `Menciones agrupadas: ${number(site.total_response_mentions || site.frequency)}` : `Porcentaje local: ${number(site.percentage_locality)}%`;
+      const show = () => showTooltip(path, `<strong>${esc(site.locality || 'Localidad')}</strong><span class="tip-kind">Zona de influencia analítica · no es un límite oficial</span><br>${frequencyLine}<br>Respuestas válidas: ${number(site.total_participations)}<br>${distribution}${mix ? `<br><br>${mix}` : ''}<br>Sitio: ${esc(site.site_source || 'coordenada geográfica confiable')}`);
+      path.addEventListener('mouseenter', show); path.addEventListener('focus', show);
+      path.addEventListener('mouseleave', hide); path.addEventListener('blur', hide);
+    });
+  }
+
+  function mapLegend(data) {
+    if (data.map_type === 'composition') {
+      const categories = data.response_categories || [];
+      return `<div class="key-title">Todas las respuestas · composición (%)</div>${categories.map((category, index) => `<div class="key-row"><i class="swatch" style="background:${categoryColors[index % categoryColors.length]}"></i>${esc(category)}</div>`).join('')}<div class="key-row"><i class="swatch" style="background:var(--monte)"></i>Monte / área sin localidad</div><div class="key-row"><i class="swatch" style="background:var(--sin-datos)"></i>Localidad oficial sin registro</div><div class="key-note">Cada polígono con datos contiene todas las categorías. El ancho de cada franja representa su porcentaje dentro de la localidad o colonia. El verde tenue identifica áreas fuera de las localidades representadas.</div>`;
+    }
+    if (data.map_type === 'dominant') {
+      const categories = data.response_categories || [];
+      return `<div class="key-title">Respuesta predominante</div>${categories.map((category, index) => `<div class="key-row"><i class="swatch" style="background:${categoryColors[index % categoryColors.length]}"></i>${esc(category)}</div>`).join('')}<div class="key-note">Cada territorio se pinta con el color de la respuesta más frecuente. Haz clic en una localidad para consultar su frecuencia y porcentaje.</div>`;
+    }
+    const percentageMode = data.map_type === 'frequency' && metricMode === 'percentage';
+    return `<div class="key-title">${percentageMode ? 'Porcentaje local' : 'Frecuencia'} · ${esc(data.answer || '')}</div>
+      ${percentageMode ? `
+      <div class="key-row"><i class="swatch" style="background:#691c32"></i>80–100%</div>
+      <div class="key-row"><i class="swatch" style="background:#9f5264"></i>60–80%</div>
+      <div class="key-row"><i class="swatch" style="background:#bc955b"></i>40–60%</div>
+      <div class="key-row"><i class="swatch" style="background:#93b5a9"></i>20–40%</div>
+      <div class="key-row"><i class="swatch" style="background:#dce9e4"></i>Más de 0–20%</div>` : `
+      <div class="key-row"><i class="swatch" style="background:#691c32"></i>Mayor frecuencia</div>
+      <div class="key-row"><i class="swatch" style="background:#bc955b"></i>Frecuencia media</div>
+      <div class="key-row"><i class="swatch" style="background:#93b5a9"></i>Menor frecuencia</div>`}
+      <div class="key-row"><i class="swatch" style="background:var(--cero)"></i>${percentageMode ? '0%' : '0 menciones en esa localidad'}</div>
+      <div class="key-note">${percentageMode ? 'La intensidad indica qué proporción de las respuestas válidas de cada localidad corresponde a la opción elegida.' : 'La intensidad compara cuántas veces cada localidad eligió esta respuesta.'}</div>`;
+  }
+
+  function render() {
+    const data = payload(result);
+    const dataFeatures = data.feature_collection?.features || [];
+    const baseFeatures = data.territory_background?.features || [];
+    const background = data.background?.features || [];
+    const influenceSites = data.influence_sites || [];
+    const metrics = data.metrics || {};
+
+    if (!data.map_type) {
+      root.innerHTML = `<div class="app-shell">
+        ${institutionalHeader()}
+        <main class="page-container">
+          <section class="landing">
+            <div>
+              <div class="eyebrow">Planeación basada en evidencia</div>
+              <h1>Mapeo territorial de participación ciudadana</h1>
+              <div class="landing-copy"><p>Convierte resultados de encuestas en mapas municipales para identificar cómo se distribuyen las respuestas entre localidades y colonias de Hidalgo.</p></div>
+              <div class="landing-points" aria-label="Características del sistema">
+                <div class="landing-point"><span class="landing-point__mark">1</span><span>Detecta automáticamente las columnas de municipio, localidad, pregunta y respuesta.</span></div>
+                <div class="landing-point"><span class="landing-point__mark">2</span><span>Concentra todas las respuestas de una pregunta dentro de cada territorio.</span></div>
+                <div class="landing-point"><span class="landing-point__mark">3</span><span>Genera un mapa municipal con cartografía oficial y una vista analítica de cobertura completa.</span></div>
+              </div>
+            </div>
+            ${uploadPanel(false)}
+          </section>
+          <section class="institution-strip" aria-label="Alcance del sistema">
+            <div class="institution-strip__item"><strong>Formato flexible</strong><span>Excel, XLS o CSV con encabezados descriptivos.</span></div>
+            <div class="institution-strip__item"><strong>Cobertura Hidalgo</strong><span>Municipios, localidades y colonias del catálogo geográfico integrado.</span></div>
+            <div class="institution-strip__item"><strong>Resultados agregados</strong><span>Frecuencias territoriales listas para análisis y comunicación institucional.</span></div>
+          </section>
+          ${institutionalFooter()}
+        </main>
+      </div>`;
+      wireUpload();
+      return;
+    }
+
+    if (coverageMode === 'influence' && !influenceSites.length) coverageMode = 'official';
+    const projection = projectionFor(background, baseFeatures);
+    const cells = influenceCells(influenceSites, projection);
+    const layerOrder = feature => feature.properties?.geometry_kind === 'settlement' ? 1 : 0;
+    const drawDataFeatures = [...dataFeatures].sort((a, b) => layerOrder(a) - layerOrder(b));
+    const mappedKeys = new Set(drawDataFeatures.map(feature => String(feature.properties?.official_key || '')).filter(Boolean));
+    const visibleBase = baseFeatures.filter(feature => !mappedKeys.has(String(feature.properties?.official_key || ''))).sort((a, b) => layerOrder(a) - layerOrder(b));
+    const activeValues = coverageMode === 'influence' ? influenceSites : drawDataFeatures.map(feature => feature.properties || {});
+    const valueFor = properties => mapValue(properties, data);
+    const percentageMode = data.map_type === 'frequency' && metricMode === 'percentage';
+    const max = percentageMode ? 100 : Math.max(...activeValues.map(valueFor), 1);
+    data.metrics = {...metrics, max_locality_responses: Math.max(...activeValues.map(item => Number(item.total_participations || 0)), 1)};
+
+    const municipalFillPaths = background.map(feature => `<path class="municipal-fill" fill-rule="evenodd" d="${pathFor(feature.geometry, projection)}"></path>`).join('');
+    const municipalOutlinePaths = background.map(feature => `<path class="municipal-boundary" fill-rule="evenodd" d="${pathFor(feature.geometry, projection)}"></path>`).join('');
+    const clipFeatures = background.length ? background : baseFeatures;
+    const clipPaths = clipFeatures.map(feature => `<path fill-rule="evenodd" d="${pathFor(feature.geometry, projection)}"></path>`).join('');
+    let gradientDefinitions = '';
+
+    const basePaths = coverageMode === 'official' ? visibleBase.map((feature, index) => {
+      const properties = feature.properties || {};
+      const kind = properties.geometry_kind === 'settlement' ? 'settlement' : 'locality';
+      return `<path class="official-base ${kind} focus-target" tabindex="0" data-index="${index}" data-focus="official-${esc(properties.official_key || index)}" d="${pathFor(feature.geometry, projection)}" fill-rule="evenodd" aria-label="${esc(properties.locality)}: unidad oficial sin datos en el Excel"></path>`;
+    }).join('') : '';
+
+    const dataPaths = coverageMode === 'official' ? drawDataFeatures.map((feature, index) => {
+      const properties = feature.properties || {};
+      const kind = properties.geometry_kind === 'settlement' ? 'settlement' : 'locality';
+      const paint = paintFor(properties, data, max, `official-mix-${index}`);
+      gradientDefinitions += paint.definition;
+      const territoryClass = data.map_type === 'dominant' ? ' dominant-territory' : '';
+      return `<path class="official-data ${kind}${territoryClass} focus-target" tabindex="0" data-index="${index}" data-focus="official-${esc(properties.official_key || index)}" d="${pathFor(feature.geometry, projection)}" fill="${paint.fill}" fill-opacity="${paint.opacity}" fill-rule="evenodd" aria-label="${esc(properties.locality)}: ${displayMapValue(valueFor(properties), data)}"></path>`;
+    }).join('') : '';
+
+    const influencePaths = coverageMode === 'influence' ? cells.map((cell, index) => {
+      const paint = paintFor(cell.site, data, max, `influence-mix-${index}`);
+      gradientDefinitions += paint.definition;
+      const territoryClass = data.map_type === 'dominant' ? ' dominant-territory' : '';
+      return `<path class="influence-zone${territoryClass} focus-target" tabindex="0" data-index="${index}" data-focus="site-${cell.sourceIndex}" d="${cell.path}" fill="${paint.fill}" fill-opacity="${paint.opacity}" aria-label="${esc(cell.site.locality)}: ${displayMapValue(valueFor(cell.site), data)}"></path>`;
+    }).join('') : '';
+
+    const officialOutlines = coverageMode === 'influence' ? [...baseFeatures].sort((a, b) => layerOrder(a) - layerOrder(b)).map(feature => {
+      const kind = feature.properties?.geometry_kind === 'settlement' ? 'settlement' : 'locality';
+      return `<path class="official-outline ${kind}" fill-rule="evenodd" d="${pathFor(feature.geometry, projection)}"></path>`;
+    }).join('') : '';
+    const osmContext = osmRoadsSvg(osmRoads, projection, clipPaths, osmEnabled);
+    const maxMarkerVolume = Math.max(...(coverageMode === 'influence' ? influenceSites : drawDataFeatures.map(feature => feature.properties || {})).map(item => Number(item.total_participations || 0)), 1);
+    const markerFor = (point, properties, index) => {
+      if (!point) return '';
+      const category = categoryColor(properties.dominant_answer, data.response_categories || []);
+      const volume = Number(properties.total_participations || 0);
+      const radius = Math.min(1.05, .42 + .42 * Math.sqrt(volume / maxMarkerVolume));
+      const label = esc(properties.locality || 'Localidad');
+      return `<g class="territory-marker" data-index="${index}"><circle class="territory-point" cx="${point[0]}" cy="${point[1]}" r="${radius}" fill="${category}"><title>${label}: ${esc(properties.dominant_answer || 'Sin respuesta predominante')}</title></circle><text class="territory-label" x="${point[0] + radius + .35}" y="${point[1] + .5}">${label}</text></g>`;
+    };
+    const officialMarkers = coverageMode === 'official' && data.map_type === 'dominant'
+      ? drawDataFeatures.map((feature, index) => markerFor(centroidFor(feature.geometry, projection), feature.properties || {}, index)).join('')
+      : '';
+    const influenceMarkers = coverageMode === 'influence' && data.map_type === 'dominant'
+      ? cells.map((cell, index) => markerFor(cell.point, cell.site || {}, index)).join('')
+      : coverageMode === 'influence'
+        ? cells.map(cell => `<circle class="site-marker" cx="${cell.point[0]}" cy="${cell.point[1]}" r=".42"><title>${esc(cell.site.locality)}</title></circle>`).join('')
+        : '';
+    const markers = officialMarkers + influenceMarkers;
+
+    const rankingSource = coverageMode === 'influence'
+      ? influenceSites.map(site => ({...site}))
+      : drawDataFeatures.map(feature => ({...(feature.properties || {})}));
+    const ranked = rankingSource.sort((a, b) => valueFor(b) - valueFor(a));
+    const rows = ranked.slice(0, 15).map((properties, index) => {
+      const detail = data.map_type === 'dominant'
+        ? `Predomina: ${esc(properties.dominant_answer || 'Sin dato')} (${number(properties.frequency)})`
+        : data.map_type === 'composition'
+          ? `${number(properties.total_response_mentions || properties.frequency)} menciones · distribución completa en el polígono`
+        : percentageMode
+          ? `${number(properties.frequency)} mención(es) de ${number(properties.total_participations)} respuestas locales`
+          : `${percent(properties.percentage_locality)}% de ${number(properties.total_participations)} respuestas locales`;
+      return `<div class="rank-row"><span class="rank-no">${index + 1}</span><span>${esc(properties.locality)}<small class="rank-detail">${detail}</small></span><span class="rank-value">${displayMapValue(valueFor(properties), data)}</span></div>`;
+    }).join('') || '<div class="context">No hay unidades geográficas con datos para ordenar.</div>';
+
+    const nonmapped = data.unmatched_localities || [];
+    const pointOnly = nonmapped.filter(item => item.classification === 'point_only');
+    const invalid = nonmapped.filter(item => item.classification === 'unmatched');
+    const missing = nonmapped.filter(item => item.classification === 'missing_locality');
+    const diagnostics = [
+      pointOnly.length ? `<div class="diagnostic"><strong>Localidades sólo puntuales:</strong> ${coverageMode === 'influence' ? 'incluidas en la cobertura analítica mediante su coordenada oficial' : 'sin área en la vista oficial'}: ${pointOnly.map(item => `${esc(item.locality)} (${number(item.total_participations)})`).join(', ')}.</div>` : '',
+      invalid.length ? `<div class="diagnostic"><strong>No ubicables:</strong> ${invalid.map(item => `${esc(item.locality)} (${number(item.total_participations)})`).join(', ')}.</div>` : '',
+      missing.length ? `<div class="diagnostic"><strong>Sin localidad declarada:</strong> ${number(metrics.missing_locality_records)} registro(s).</div>` : ''
+    ].join('');
+
+    const isInfluence = coverageMode === 'influence';
+    const colored = isInfluence ? Number(metrics.influence_site_localities || influenceSites.length) : Number(metrics.georeferenced_polygons || dataFeatures.length);
+    const totalOfficial = Number(metrics.official_territory_polygons || baseFeatures.length);
+    const noData = Number(metrics.official_polygons_without_excel_data || Math.max(totalOfficial - colored, 0));
+    const representedRecords = isInfluence ? Number(metrics.influence_records || 0) : Number(metrics.mapped_records || 0);
+    const coverage = isInfluence ? Number(metrics.influence_coverage_percentage || 0) : Number(metrics.record_coverage_percentage || 0);
+    const mentionLabel = data.map_type === 'composition' ? 'Respuestas de la pregunta' : data.map_type === 'dominant' ? 'Respuestas válidas agrupadas' : data.map_type === 'participation' ? 'Respuestas válidas' : 'Menciones de la respuesta';
+    const notice = isInfluence
+      ? `Cobertura completa analítica: todo el municipio se asigna a la localidad o colonia geográficamente más cercana. Los conteos provienen del Excel; las divisiones blancas son zonas de influencia, no límites oficiales de INEGI. Se superponen ${totalOfficial} polígonos oficiales como referencia.`
+      : `Límites oficiales únicamente: ${colored} de ${totalOfficial} polígonos tienen datos vinculados y ${noData} permanecen en gris. Las áreas sin polígono publicado no se colorean en esta vista.`;
+    const coverageMetric = isInfluence ? `${colored} sitios` : `${colored} / ${totalOfficial}`;
+    const coverageMetricLabel = isInfluence ? 'Localidades/colonias representadas' : 'Polígonos oficiales con datos';
+
+    const focusItems = isInfluence
+      ? influenceSites.map((site, index) => ({value: `site-${index}`, label: site.locality}))
+      : baseFeatures.map((feature, index) => ({value: `official-${feature.properties?.official_key || index}`, label: feature.properties?.locality || 'Unidad sin nombre'}));
+    const focusOptions = focusItems.sort((a, b) => String(a.label).localeCompare(String(b.label), 'es')).map(item => `<option value="${esc(item.value)}">${esc(item.label)}</option>`).join('');
+    const policy = isInfluence
+      ? 'zonas de vecino más cercano (Voronoi) recortadas al límite municipal oficial; sus divisiones son analíticas'
+      : 'sólo polígonos oficiales de localidad/asentamiento publicados por INEGI';
+    const rankingTitle = data.map_type === 'composition' ? 'Volumen y distribución por localidad' : data.map_type === 'dominant' ? 'Volumen y respuesta predominante por localidad' : `${percentageMode ? 'Porcentaje local' : 'Frecuencia'} de “${esc(data.answer)}”`;
+    const displayTitle = percentageMode ? `Porcentaje territorial — ${data.answer}` : (data.title || 'Mapa coroplético municipal');
+    const topTerritory = ranked[0] || null;
+    const maximumDisplay = topTerritory ? displayMapValue(valueFor(topTerritory), data) : '0';
+    const warnings = (data.warnings || []).slice(0, 6);
+
+    root.innerHTML = `<div class="app-shell">
+      ${institutionalHeader()}
+      <main class="page-container">
+        <section class="result-heading">
+          <div><div class="eyebrow">Resultado territorial</div><h1>${esc(displayTitle)}</h1></div>
+          <div class="result-place"><div class="result-place__name">${esc(data.municipality || 'Municipio no especificado')}</div><div class="result-place__source">Límite municipal oficial INEGI</div></div>
+        </section>
+        ${publicMap ? '' : uploadPanel(true)}
+        <div class="notice">${notice}</div>
+        <section class="map-frame">
+          <div class="map-toolbar">
+            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button>
+            <select id="coverage-mode" aria-label="Elegir tipo de cobertura"><option value="official" ${!isInfluence ? 'selected' : ''}>Sólo límites oficiales</option><option value="influence" ${isInfluence ? 'selected' : ''}>Cobertura completa · influencia analítica</option></select>
+            <select id="territory-focus" aria-label="Enfocar una localidad o colonia"><option value="">Enfocar localidad o colonia…</option>${focusOptions}</select>
+            <span class="source">INEGI · Marco Geoestadístico y DCAH · Hidalgo · líneas OSM</span>
+          </div>
+          <div class="map-wrap"><svg class="map-svg" viewBox="0 0 100 100" role="img" aria-label="Mapa del municipio de ${esc(data.municipality)}"><title>${esc(displayTitle)}</title><desc>${isInfluence ? 'Cobertura municipal completa por influencia geográfica de localidades con datos.' : 'Coropleta con polígonos oficiales de localidades y asentamientos.'}</desc><defs><clipPath id="municipality-clip">${clipPaths}</clipPath>${gradientDefinitions}</defs><g class="map-layer"><rect x="0" y="0" width="100" height="100" fill="#edf2ef" fill-opacity="0"></rect>${municipalFillPaths}<g clip-path="url(#municipality-clip)">${influencePaths}</g>${basePaths}${dataPaths}${osmContext}${officialOutlines}${markers}${municipalOutlinePaths}</g></svg><div class="osm-attribution">Líneas viales: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div><div class="map-key">${mapLegend(data)}</div><div id="tip" class="tooltip" hidden></div></div>
+        </section>
+        <section class="metrics">
+          <div class="metric"><div class="metric-value">${number(metrics.mentions)}</div><div class="metric-label">${mentionLabel}</div></div>
+          <div class="metric"><div class="metric-value">${coverageMetric}</div><div class="metric-label">${coverageMetricLabel}</div></div>
+          <div class="metric"><div class="metric-value">${esc(topTerritory?.locality || 'Sin datos')}</div><div class="metric-label">Mayor intensidad</div></div>
+          <div class="metric"><div class="metric-value">${maximumDisplay}</div><div class="metric-label">Máximo territorial</div></div>
+        </section>
+        <section class="below">
+          <div class="panel"><h2>${rankingTitle}</h2><div class="ranking">${rows}</div></div>
+          <div class="panel"><h2>Ficha y cobertura</h2><div class="context"><strong>Pregunta:</strong> ${esc(data.question || 'No especificada')}<br><strong>Clasificación:</strong> ${data.map_type === 'dominant' ? 'respuesta predominante por localidad/colonia' : esc(data.answer || 'Todas las respuestas')}<br><strong>Medida:</strong> ${data.map_type === 'composition' ? 'porcentaje de cada respuesta dentro de la localidad' : data.map_type === 'dominant' ? 'frecuencia absoluta de la respuesta predominante, con su porcentaje local' : percentageMode ? 'porcentaje dentro de cada localidad' : 'frecuencia absoluta por localidad'}.<br><strong>Agrupación:</strong> ${data.map_type === 'composition' ? 'cada polígono conserva todas las respuestas; el ancho de cada franja representa su porcentaje local.' : data.map_type === 'dominant' ? 'se comparan todas las respuestas válidas de cada localidad y se conserva la categoría con mayor frecuencia.' : 'se cuenta cuántas filas de cada localidad/colonia eligieron exactamente la respuesta seleccionada.'}<br><strong>Cobertura de registros:</strong> ${number(representedRecords)} de ${number(metrics.total_response_records)} (${percent(coverage)}%).<br><strong>Política geométrica:</strong> ${policy}.<br><strong>Importante:</strong> no se inventan respuestas ni se redistribuyen conteos entre localidades.</div>${diagnostics}${warnings.map(warning => `<div class="warning">${esc(warning)}</div>`).join('')}</div>
+        </section>
+        ${institutionalFooter()}
+      </main>
+    </div>`;
+
+    bindMapPaths(visibleBase, drawDataFeatures, cells, data);
+    const layer = root.querySelector('.map-layer');
+    if (layer) layer.style.transform = `scale(${zoom})`;
+    const focusSelect = root.querySelector('#territory-focus');
+    root.querySelectorAll('[data-action="zoom-in"]').forEach(button => button.onclick = () => { zoom = Math.min(12, zoom + .5); layer.style.transform = `scale(${zoom})`; });
+    root.querySelectorAll('[data-action="zoom-out"]').forEach(button => button.onclick = () => { zoom = Math.max(.7, zoom - .5); layer.style.transform = `scale(${zoom})`; });
+    root.querySelectorAll('[data-action="reset"]').forEach(button => button.onclick = () => { zoom = 1; layer.style.transformOrigin = '50% 50%'; layer.style.transform = 'scale(1)'; if (focusSelect) focusSelect.value = ''; });
+    const coverageSelect = root.querySelector('#coverage-mode');
+    if (coverageSelect) coverageSelect.onchange = event => { coverageMode = event.target.value; zoom = 1; render(); };
+    const osmToggle = root.querySelector('[data-action="toggle-osm"]');
+    if (osmToggle) osmToggle.onclick = () => { osmEnabled = !osmEnabled; render(); };
+    if (focusSelect) focusSelect.onchange = event => {
+      const path = [...root.querySelectorAll('.focus-target')].find(item => item.dataset.focus === event.target.value);
+      if (!path) return;
+      const bounds = path.getBBox();
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+      zoom = Math.min(12, Math.max(4, 22 / Math.max(bounds.width, bounds.height, 1.5)));
+      layer.style.transformOrigin = `${centerX}% ${centerY}%`;
+      layer.style.transform = `scale(${zoom})`;
+      path.focus();
+    };
+    wireUpload();
+    ensureOsmRoads();
+
+    if (publicMap && host?.publicMapVersionUrl) {
+      const pollMilliseconds = Math.max(15000, Number(host.publicMapPollMs || 30000));
+      window.setInterval(async () => {
+        try {
+          const response = await fetch(host.publicMapVersionUrl, { cache: 'no-store' });
+          if (!response.ok) return;
+          const current = await response.json();
+          if (current.version && current.version !== host.publicMapVersion) {
+            window.location.reload();
+          }
+        } catch (_) {
+          // Keep the last valid map visible if the refresh endpoint is unavailable.
+        }
+      }, pollMilliseconds);
+    }
+  }
+
+  window.addEventListener('message', event => {
+    const message = event.data;
+    if (message?.method === 'ui/notifications/tool-result') {
+      result = message.params?.result || message.params;
+      coverageMode = 'official';
+      zoom = 1;
+      render();
+    }
+  });
+  render();
+})();
+</script>
