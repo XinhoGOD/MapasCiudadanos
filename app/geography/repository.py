@@ -30,9 +30,11 @@ class GeographyRepository:
     """Resolve names against official Hidalgo polygons, loading one municipality at a time."""
 
     def __init__(self, catalog_path: str | None = None, geometry_root: str | None = None):
-        self.catalog_path = catalog_path or os.getenv("GEOGRAPHY_CATALOG_PATH", "data/geography.catalog.geojson")
+        configured_catalog = os.getenv("GEOGRAPHY_CATALOG_PATH", "").strip()
+        self.catalog_path = catalog_path or configured_catalog or "data/geography.catalog.geojson"
         inferred_root = Path(self.catalog_path).parent / "geography" / "hidalgo" if catalog_path else Path("data/geography/hidalgo")
-        self.geometry_root = Path(geometry_root or os.getenv("GEOMETRY_ROOT_PATH", str(inferred_root)))
+        configured_geometry_root = os.getenv("GEOMETRY_ROOT_PATH", "").strip()
+        self.geometry_root = Path(geometry_root or configured_geometry_root or str(inferred_root))
         self.records = self._load_catalog(Path(self.catalog_path))
         # Runtime source of truth: one reviewed, offline GeoJSON per Hidalgo
         # municipality under data/geography/hidalgo. The two global files remain
