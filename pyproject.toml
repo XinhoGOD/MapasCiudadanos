@@ -29,3 +29,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.vercel]
+entrypoint = "scripts.hosted_map_server:app"
