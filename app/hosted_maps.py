@@ -128,7 +128,12 @@ class HostedMapStore:
         self.source_cache = self.root / "source-cache"
         self.root.mkdir(parents=True, exist_ok=True)
         self.source_cache.mkdir(parents=True, exist_ok=True)
-        self.refresh_seconds = max(15, int(refresh_seconds or os.getenv("SHEET_REFRESH_SECONDS", "60")))
+        configured_refresh = os.getenv("SHEET_REFRESH_SECONDS", "").strip()
+        try:
+            refresh_value = int(refresh_seconds) if refresh_seconds is not None else int(configured_refresh or "60")
+        except (TypeError, ValueError):
+            refresh_value = 60
+        self.refresh_seconds = max(15, refresh_value)
         self._lock = threading.Lock()
 
     def _path(self, map_id: str) -> Path:
