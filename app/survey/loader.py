@@ -45,7 +45,11 @@ def resolve_file_input(file_path: str | None = None, file: Any = None) -> Path:
         raise ValueError("Formato no compatible. Usa .xlsx, .xls o .csv.")
     if not path.is_file():
         raise FileNotFoundError("No encontré el archivo cargado en el almacenamiento de trabajo.")
-    max_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+    configured_max_bytes = os.getenv("MAX_UPLOAD_BYTES", "").strip()
+    try:
+        max_bytes = int(configured_max_bytes or str(50 * 1024 * 1024))
+    except (TypeError, ValueError):
+        max_bytes = 50 * 1024 * 1024
     if path.stat().st_size > max_bytes:
         raise ValueError(f"El archivo supera el límite permitido de {max_bytes // (1024 * 1024)} MB.")
     return path
