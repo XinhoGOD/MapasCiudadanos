@@ -9,7 +9,10 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = (
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+)
 USER_AGENT = "MapaParticipacionCiudadana/0.1 (+contexto-vial)"
 ALLOWED_HIGHWAYS = {
     "motorway",
@@ -30,6 +33,7 @@ ALLOWED_HIGHWAYS = {
     "path",
     "footway",
 }
+HIGHWAY_QUERY = "|".join(sorted(ALLOWED_HIGHWAYS))
 
 
 def _coordinates(value: Any, output: list[tuple[float, float]] | None = None) -> list[tuple[float, float]]:
@@ -108,30 +112,34 @@ def get_road_lines(
             destination.unlink(missing_ok=True)
 
     south, west, north, east = bbox
-    query = f"[out:json][timeout:30];way[highway]({south:.5f},{west:.5f},{north:.5f},{east:.5f});out geom;"
-    request = Request(
-        OVERPASS_URL,
-        data=query.encode("utf-8"),
-        headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "User-Agent": USER_AGENT},
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=45) as response:  # nosec B310 - fixed public Overpass endpoint
-            raw = response.read(12 * 1024 * 1024 + 1)
-        if len(raw) > 12 * 1024 * 1024:
-            raise ValueError("La respuesta de OpenStreetMap superó el límite de contexto permitido.")
-        parsed = json.loads(raw.decode("utf-8"))
-        result = _geojson(parsed.get("elements", []))
-        result.update({"source": "OpenStreetMap", "features_count": len(result["features"])})
-        temporary = destination.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        temporary.replace(destination)
-        return result
-    except Exception as error:
-        return {
-            "type": "FeatureCollection",
-            "features": [],
-            "source": "OpenStreetMap",
-            "features_count": 0,
-            "error": f"No fue posible cargar las líneas viales: {error}",
-        }
+    query = f'[out:json][timeout:20];way[highway~"^({HIGHWAY_QUERY})$"]({south:.5f},{west:.5f},{north:.5f},{east:.5f});out geom;'
+    last_error: Exception | None = None
+    for overpass_url in OVERPASS_URLS:
+        request = Request(
+            overpass_url,
+            data=query.encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "User-Agent": USER_AGENT},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=25) as response:  # nosec B310 - fixed public Overpass endpoints
+                raw = response.read(12 * 1024 * 1024 + 1)
+            if len(raw) > 12 * 1024 * 1024:
+                raise ValueError("La respuesta de OpenStreetMap superó el límite de contexto permitido.")
+            parsed = json.loads(raw.decode("utf-8"))
+            result = _geojson(parsed.get("elements", []))
+            result.update({"source": "OpenStreetMap", "features_count": len(result["features"])})
+            temporary = destination.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            temporary.replace(destination)
+            return result
+        except Exception as error:
+            last_error = error
+
+    return {
+        "type": "FeatureCollection",
+        "features": [],
+        "source": "OpenStreetMap",
+        "features_count": 0,
+        "error": f"No fue posible cargar las líneas viales: {last_error}",
+    }
