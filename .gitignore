@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+dist/
+build/
+*.egg-info/
+data/*.gpkg
+data/uploads/
+work/inegi-source/
+work/*.zip
+work/hosted-maps/

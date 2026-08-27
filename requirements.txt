@@ -1,0 +1,11 @@
+mcp>=1.26.0
+starlette>=0.37.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+pandas>=2.2.0
+openpyxl>=3.1.0
+xlrd>=2.0.1
+rapidfuzz>=3.0.0
+pyshp>=3.0.0
+pyproj>=3.6.0
+pytest>=8.0.0
