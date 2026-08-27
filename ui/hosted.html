@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa de Participación Ciudadana · Hidalgo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root { color-scheme: light; font-family: "Segoe UI", Arial, sans-serif; color: #2a2724; background: #f4f1ec; --guinda: #7b1e3a; --guinda-deep: #561329; --verde: #1f5a4a; --dorado: #c7a15a; --line: #ded8cf; --surface: #fff; --soft: #faf8f4; --muted: #6f6a64; --ink-soft: #47413c; }
     * { box-sizing: border-box; }
@@ -57,18 +60,58 @@
     @media (max-width: 820px) { .main-grid { grid-template-columns: 1fr; gap: 27px; padding-top: 40px; } .intro { padding-top: 0; } .intro > p { max-width: 680px; } .panel { max-width: 680px; } }
     @media (max-width: 640px) { .shell { width: calc(100% - 28px); padding-top: 18px; } .masthead { align-items: flex-start; flex-direction: column; gap: 10px; } .brand-image { width: min(391px, 100%); } .office { max-width: none; padding: 0; border: 0; text-align: left; } .main-grid { gap: 24px; padding-top: 34px; } h1 { font-size: clamp(30px, 10vw, 43px); } .intro > p { font-size: 14px; } .outputs { grid-template-columns: 1fr; } .output { padding: 12px 0; } .output + .output { padding-left: 0; border-top: 1px solid var(--line); border-left: 0; } .panel { padding: 18px; } .row { grid-template-columns: 1fr; gap: 17px; } .actions { align-items: flex-start; flex-direction: column; } button { width: 100%; } .status { min-height: 0; } }
   </style>
+  <style data-institutional-reference>
+    :root { font-family: "Montserrat", "Segoe UI", Arial, sans-serif; --guinda: #611232; --guinda-deep: #4b0d27; --tinto: #9d2449; --dorado: #a57f2c; --verde: #235b4e; --gray-dark: #333; --gray-light: #f4f4f5; --line: rgba(152,152,154,.42); --soft: #f8f8f8; }
+    body { background: var(--gray-light); color: var(--gray-dark); }
+    .shell { width: min(1280px, calc(100% - 80px)); padding: 0 0 28px; }
+    .masthead { min-height: 80px; align-items: center; padding: 12px 0; background: #fff; border-bottom: 1px solid var(--line); border-top: 0; }
+    .brand-link { display: flex; align-items: center; }
+    .brand-image { width: min(360px, 34vw); }
+    .header-nav { display: flex; align-items: center; gap: 24px; margin-left: auto; }
+    .header-nav a { color: var(--gray-dark); font-size: 12px; font-weight: 600; text-decoration: none; transition: color .2s ease; }
+    .header-nav a:hover { color: var(--tinto); }
+    .header-actions { display: flex; align-items: center; gap: 16px; margin-left: 22px; }
+    .office { max-width: 245px; padding-left: 16px; border-left-color: var(--line); font-size: 11px; }
+    .office small { font-size: 9px; }
+    .access { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 16px; color: #fff; background: var(--tinto); border-radius: 2px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .access:hover { background: var(--guinda); }
+    .main-grid { grid-template-columns: minmax(0, 1fr) minmax(420px, .78fr); gap: clamp(36px, 6vw, 84px); padding: 46px 0 32px; }
+    .intro { padding-top: 8px; }
+    .eyebrow { color: var(--guinda); letter-spacing: .13em; }
+    h1 { max-width: 680px; color: var(--guinda); font-size: clamp(34px, 4.1vw, 52px); line-height: 1.13; font-weight: 700; }
+    .intro > p { max-width: 650px; color: #5e5e5e; font-size: 16px; }
+    .decision-note { border-top-color: var(--line); }
+    .outputs { max-width: 680px; border-color: var(--line); }
+    .output strong { color: var(--guinda); }
+    .panel { border-color: #98989a; border-top: 4px solid var(--guinda); border-radius: 4px; box-shadow: 0 4px 20px 4px rgba(0,0,0,.05); }
+    .panel-kicker { color: var(--verde); }
+    .panel h2 { color: var(--guinda-deep); }
+    .panel-status { color: var(--verde); background: #e7f0ec; }
+    label { color: var(--guinda-deep); }
+    input, select { background: #fafafa; border-color: #98989a; }
+    input:focus, select:focus { border-color: var(--tinto); outline-color: rgba(157,36,73,.32); }
+    button { background: var(--guinda); border-color: var(--guinda); }
+    button:hover { background: var(--tinto); }
+    .privacy { border-top: 1px solid transparent; }
+    footer { width: 100%; margin: 20px 0 0; padding: 28px 0; color: rgba(255,255,255,.72); background: var(--gray-dark); border-top: 3px solid var(--tinto); }
+    footer strong { color: #fff; }
+    @media (max-width: 1080px) { .header-nav { gap: 14px; } .header-actions { gap: 10px; margin-left: 12px; } .office { max-width: 205px; } }
+    @media (max-width: 820px) { .shell { width: min(100% - 32px, 680px); } .header-nav { display: none; } .header-actions { margin-left: auto; } .main-grid { grid-template-columns: 1fr; gap: 28px; padding-top: 36px; } }
+    @media (max-width: 640px) { .shell { width: calc(100% - 28px); } .masthead { align-items: flex-start; flex-direction: column; gap: 10px; } .brand-image { width: min(360px, 100%); } .header-actions { width: 100%; align-items: flex-start; justify-content: space-between; margin-left: 0; } .office { max-width: none; padding: 0; border: 0; text-align: left; } .access { margin-top: 5px; } .main-grid { gap: 24px; padding-top: 30px; } h1 { font-size: clamp(32px, 10vw, 45px); } }
+  </style>
 </head>
 <body>
-  <main class="shell">
+  <main class="shell" id="inicio">
     <header class="masthead">
-      <img class="brand-image" src="/assets/identity/planeacion-proporcionado.png" alt="Hidalgo Primero el Pueblo · Planeación · Unidad de Planeación y Prospectiva">
-      <div class="office">Dirección de Participación Ciudadana<small>Unidad de Planeación y Prospectiva · Sistema de análisis territorial</small></div>
+      <a class="brand-link" href="#inicio" aria-label="Ir al inicio"><img class="brand-image" src="/assets/identity/planeacion-proporcionado.png" alt="Hidalgo Primero el Pueblo · Planeación · Unidad de Planeación y Prospectiva"></a>
+      <nav class="header-nav" aria-label="Navegación institucional"><a href="#fuente">Fuente de datos</a><a href="#alcance">Alcance</a><a href="#footer">Información</a></nav>
+      <div class="header-actions"><div class="office">Dirección de Participación Ciudadana<small>Unidad de Planeación y Prospectiva · Sistema de análisis territorial</small></div><a class="access" href="#fuente">Acceder</a></div>
     </header>
     <div class="main-grid">
       <section class="intro">
-        <div class="eyebrow">Mapa de Participación Ciudadana</div>
-        <h1>De la participación ciudadana a una lectura territorial.</h1>
-        <p>Conecta una hoja pública de Google Sheets o carga un Excel. El sistema organiza las respuestas por localidad o colonia y las relaciona con cartografía oficial de Hidalgo.</p>
+        <div class="eyebrow">Mapeo territorial de participación ciudadana</div>
+        <h1>Plataforma de análisis y prospectiva cartográfica</h1>
+        <p>Módulo técnico para la visualización, análisis y generación de mapas municipales a partir de resultados de encuestas y datos geoespaciales. Herramienta de uso institucional para Hidalgo.</p>
         <div class="decision-note">El resultado ayuda a identificar dónde se concentra una necesidad y qué territorios requieren atención, sin publicar filas individuales.</div>
         <div class="outputs" aria-label="Información que aporta el mapa">
           <div class="output"><strong>Territorio</strong><span>Localidades y colonias ubicadas</span></div>
@@ -76,7 +119,7 @@
           <div class="output"><strong>Decisión</strong><span>Prioridades visibles en el mapa</span></div>
         </div>
       </section>
-      <section class="panel" aria-labelledby="form-title">
+      <section class="panel" id="fuente" aria-labelledby="form-title">
         <div class="panel-head"><div><div class="panel-kicker">Paso 1 · Fuente de datos</div><h2 id="form-title">Generar mapa</h2></div><div class="panel-status">Datos agregados</div></div>
         <p>Elige una fuente. Después selecciona municipio y pregunta; el sistema detecta las columnas automáticamente.</p>
       <form id="map-form">
@@ -93,7 +136,7 @@
       <div class="privacy">Sólo se conserva una síntesis territorial. El archivo original no se publica.</div>
     </section>
     </div>
-    <footer>Cartografía de Hidalgo basada en fuentes oficiales de INEGI. El enlace público debe tratarse como información compartible.</footer>
+    <footer id="footer"><strong>Planeación Hidalgo</strong> · Dirección de Participación Ciudadana · Unidad de Planeación y Prospectiva<br>Cartografía de Hidalgo basada en fuentes oficiales de INEGI. El enlace público debe tratarse como información compartible.</footer>
   </main>
   <script>
     (() => {

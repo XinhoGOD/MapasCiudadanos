@@ -303,6 +303,84 @@
     .map-key { right: 10px; left: 10px; bottom: 10px; max-width: none; }
   }
 </style>
+<style data-design-overrides>
+  /* Visual system aligned with the institutional reference supplied for UPP Hidalgo. */
+  :root {
+    --pc-guinda: #611232;
+    --pc-guinda-deep: #4b0d27;
+    --pc-tinto: #9d2449;
+    --pc-dorado: #a57f2c;
+    --pc-dorado-soft: #f1e8d8;
+    --pc-verde: #235b4e;
+    --pc-ink: #333333;
+    --pc-muted: #686868;
+    --pc-line: rgba(152, 152, 154, .42);
+    --pc-canvas: #f4f4f5;
+    --pc-soft: #f8f8f8;
+    --pc-shadow: 0 4px 20px 4px rgba(0, 0, 0, .05);
+  }
+  body, button, select { font-family: "Montserrat", "Segoe UI", Arial, sans-serif; }
+  .site-header { position: sticky; top: 0; z-index: 50; background: #fff; box-shadow: 0 2px 8px rgba(51, 51, 51, .06); }
+  .site-header__inner { min-height: 80px; padding: 12px 0; }
+  .site-brand { display: flex; align-items: center; flex: 0 0 auto; }
+  .site-logo { width: min(360px, 34vw); }
+  .site-nav { display: flex; align-items: center; justify-content: center; gap: 24px; margin-left: auto; }
+  .site-nav a { color: var(--pc-ink); font-size: 12px; font-weight: 600; text-decoration: none; transition: color .2s ease; }
+  .site-nav a:hover { color: var(--pc-tinto); }
+  .site-header__actions { display: flex; align-items: center; gap: 16px; margin-left: 22px; }
+  .site-office { max-width: 245px; padding-left: 16px; }
+  .site-office__name { font-size: 11px; }
+  .site-office__system { font-size: 9px; }
+  .site-access { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 16px; color: #fff; background: var(--pc-tinto); border-radius: 2px; box-shadow: 0 2px 5px rgba(97, 18, 50, .18); font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background .2s ease; }
+  .site-access:hover { background: var(--pc-guinda); }
+  .page-container { padding-top: 28px; }
+  .landing { gap: clamp(28px, 5vw, 64px); min-height: 585px; padding: 35px 0 48px; }
+  .landing h1 { max-width: 680px; color: var(--pc-guinda); font-size: clamp(34px, 4.2vw, 52px); line-height: 1.13; letter-spacing: -.02em; font-weight: 700; }
+  .landing-copy { max-width: 680px; color: #5e5e5e; font-size: 16px; line-height: 1.65; }
+  .landing-copy p { max-width: 620px; }
+  .landing-point { grid-template-columns: 34px minmax(0, 1fr); gap: 12px; font-size: 12px; }
+  .landing-point__mark { width: 28px; height: 28px; color: #fff; background: var(--pc-guinda); border-radius: 2px; font-size: 10px; }
+  .workflow-panel { border-color: #98989a; border-radius: 4px; box-shadow: var(--pc-shadow); }
+  .workflow-panel__head { padding: 20px 22px 16px; }
+  .workflow-panel__title { font-size: 17px; }
+  .workflow-panel__subtitle { font-size: 11px; }
+  .workflow-step { font-size: 9px; }
+  .workflow-step::before { border-radius: 2px; }
+  .upload-drop { min-height: 178px; background: #fafafa; border-color: #98989a; }
+  .upload-drop__symbol { width: 48px; height: 48px; background: var(--pc-dorado-soft); border-radius: 2px; font-size: 23px; }
+  .button-primary { background: var(--pc-guinda); border-color: var(--pc-guinda); }
+  .button-primary:hover { background: var(--pc-tinto); }
+  .button-secondary { color: var(--pc-guinda); border-color: #98989a; }
+  .institution-strip { background: #fff; }
+  .institution-strip__item strong { color: var(--pc-guinda); }
+  .institution-strip__item span { font-size: 10px; }
+  .site-footer { margin-top: 30px; padding: 22px 0; color: rgba(255,255,255,.72); background: #333; border-top: 3px solid var(--pc-tinto); }
+  .site-footer strong { color: #fff; }
+  .map-frame.show-labels .territory-label { display: block; }
+  .territory-label { display: none; fill: #202020; font-family: "Montserrat", "Segoe UI", Arial, sans-serif; font-size: 1.55px; font-weight: 700; paint-order: stroke; stroke: rgba(255,255,255,.96); stroke-width: .72px; stroke-linejoin: round; pointer-events: none; }
+  .map-toolbar [data-action="toggle-labels"] { color: var(--pc-verde); }
+  .map-toolbar [data-action="toggle-labels"][aria-pressed="true"] { color: #fff; background: var(--pc-verde); border-color: var(--pc-verde); }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"] { display: inline-flex; align-items: center; pointer-events: auto; color: #fff; background: var(--pc-verde); border-color: var(--pc-verde); box-shadow: 0 3px 14px rgba(38,28,27,.22); }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"][aria-pressed="false"] { background: #fff; color: var(--pc-verde); }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"]:hover { background: var(--pc-tinto); color: #fff; }
+  @media (max-width: 1080px) {
+    .site-nav { gap: 14px; }
+    .site-header__actions { gap: 10px; margin-left: 12px; }
+    .site-office { max-width: 205px; }
+  }
+  @media (max-width: 820px) {
+    .site-nav { display: none; }
+    .site-header__actions { margin-left: auto; }
+  }
+  @media (max-width: 720px) {
+    .site-header__inner { min-height: 0; }
+    .site-header__actions { width: 100%; align-items: flex-start; justify-content: space-between; margin-left: 0; }
+    .site-office { max-width: none; padding: 10px 0 0; }
+    .site-access { margin-top: 8px; }
+    .site-logo { width: min(350px, 100%); }
+    .landing h1 { font-size: clamp(32px, 10vw, 46px); }
+  }
+</style>
 <script>
 (() => {
   const root = document.getElementById('root');
@@ -324,6 +402,7 @@
   let osmRoads = null;
   let osmRoadsLoading = false;
   let mapFullscreen = false;
+  let labelsEnabled = false;
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -350,16 +429,19 @@
   };
 
   function institutionalHeader() {
+    const actionHref = result?.map_type ? '#map-result' : '#carga';
+    const actionLabel = result?.map_type ? 'Ver resultado' : 'Comenzar';
     return `<header class="site-header">
       <div class="site-header__inner">
-        <img class="site-logo" src="${institutionLogo}" alt="Hidalgo Primero el Pueblo. Planeación, Unidad de Planeación y Prospectiva">
-        <div class="site-office"><div class="site-office__name">Dirección de Participación Ciudadana</div><div class="site-office__system">Sistema de análisis territorial</div></div>
+        <a class="site-brand" href="#inicio" aria-label="Ir al inicio"><img class="site-logo" src="${institutionLogo}" alt="Hidalgo Primero el Pueblo. Planeación, Unidad de Planeación y Prospectiva"></a>
+        <nav class="site-nav" aria-label="Navegación institucional"><a href="#carga">Carga de datos</a><a href="#alcance">Alcance</a><a href="#footer">Información</a></nav>
+        <div class="site-header__actions"><div class="site-office"><div class="site-office__name">Dirección de Participación Ciudadana</div><div class="site-office__system">Sistema de análisis territorial</div></div><a class="site-access" href="${actionHref}">${actionLabel}</a></div>
       </div>
     </header>`;
   }
 
   function institutionalFooter() {
-    return `<footer class="site-footer"><strong>Dirección de Participación Ciudadana</strong> · Unidad de Planeación y Prospectiva<br>Cartografía de Hidalgo basada en fuentes oficiales de INEGI. Los resultados se presentan exclusivamente de forma agregada.</footer>`;
+    return `<footer class="site-footer" id="footer"><strong>Planeación Hidalgo</strong> · Dirección de Participación Ciudadana · Unidad de Planeación y Prospectiva<br>Cartografía basada en fuentes oficiales de INEGI y contexto vial de OpenStreetMap. Los resultados se presentan exclusivamente de forma agregada.</footer>`;
   }
 
   function uploadPanel(compact = false) {
@@ -378,7 +460,7 @@
     const geographyCheck = geography
       ? `<div class="geography-check"><strong>Validación geográfica:</strong> ${number(geography.official_polygons)} con polígono oficial · ${number(geography.analytical_sites)} sólo puntuales · ${percent(geography.record_coverage_percentage)}% de registros representables${geography.review_required || geography.unmatched ? ` · <span class="needs-review">${number(Number(geography.review_required || 0) + Number(geography.unmatched || 0))} nombre(s) por revisar</span>` : ''}.</div>`
       : '';
-    return `<section class="workflow-panel ${compact ? 'workflow-panel--compact' : ''}" aria-labelledby="workflow-title">
+    return `<section class="workflow-panel ${compact ? 'workflow-panel--compact' : ''}" ${compact ? '' : 'id="carga"'} aria-labelledby="workflow-title">
       <div class="workflow-panel__head">
         <div><h2 class="workflow-panel__title" id="workflow-title">${compact ? 'Fuente y variables del mapa' : 'Carga tu base de resultados'}</h2><div class="workflow-panel__subtitle">Excel o CSV con municipio, localidad/colonia y respuestas categóricas.</div></div>
         <div class="upload-status ${statusClass}" aria-live="polite">${esc(uploadStatus || 'Listo para recibir un archivo.')}</div>
@@ -821,21 +903,21 @@
     if (!data.map_type) {
       root.innerHTML = `<div class="app-shell">
         ${institutionalHeader()}
-        <main class="page-container">
+        <main class="page-container" id="inicio">
           <section class="landing">
             <div>
-              <div class="eyebrow">Planeación basada en evidencia</div>
-              <h1>Mapeo territorial de participación ciudadana</h1>
-              <div class="landing-copy"><p>Convierte resultados de encuestas en mapas municipales para identificar cómo se distribuyen las respuestas entre localidades y colonias de Hidalgo.</p></div>
+              <div class="eyebrow">Mapeo territorial de participación ciudadana</div>
+              <h1>Plataforma de análisis y prospectiva cartográfica</h1>
+              <div class="landing-copy"><p>Módulo técnico para visualizar, analizar y generar mapas municipales a partir de resultados de encuestas y datos geoespaciales. Herramienta de uso institucional para Hidalgo.</p></div>
               <div class="landing-points" aria-label="Características del sistema">
-                <div class="landing-point"><span class="landing-point__mark">1</span><span>Detecta automáticamente las columnas de municipio, localidad, pregunta y respuesta.</span></div>
-                <div class="landing-point"><span class="landing-point__mark">2</span><span>Concentra todas las respuestas de una pregunta dentro de cada territorio.</span></div>
-                <div class="landing-point"><span class="landing-point__mark">3</span><span>Genera un mapa municipal con cartografía oficial y una vista analítica de cobertura completa.</span></div>
+                <div class="landing-point"><span class="landing-point__mark">01</span><span><strong>Fuente de datos.</strong> Carga un Excel, XLS o CSV; el sistema detecta automáticamente municipio, localidad, pregunta y respuestas.</span></div>
+                <div class="landing-point"><span class="landing-point__mark">02</span><span><strong>Parámetros territoriales.</strong> Selecciona el municipio y la pregunta que quieres analizar.</span></div>
+                <div class="landing-point"><span class="landing-point__mark">03</span><span><strong>Renderizado cartográfico.</strong> Obtén una lectura de frecuencias, respuestas predominantes y cobertura geográfica oficial.</span></div>
               </div>
             </div>
             ${uploadPanel(false)}
           </section>
-          <section class="institution-strip" aria-label="Alcance del sistema">
+          <section class="institution-strip" id="alcance" aria-label="Alcance del sistema">
             <div class="institution-strip__item"><strong>Formato flexible</strong><span>Excel, XLS o CSV con encabezados descriptivos.</span></div>
             <div class="institution-strip__item"><strong>Cobertura Hidalgo</strong><span>Municipios, localidades y colonias del catálogo geográfico integrado.</span></div>
             <div class="institution-strip__item"><strong>Resultados agregados</strong><span>Frecuencias territoriales listas para análisis y comunicación institucional.</span></div>
@@ -972,9 +1054,9 @@
         </section>
         ${publicMap ? '' : uploadPanel(true)}
         <div class="notice">${notice}</div>
-        <section class="map-frame${mapFullscreen ? ' is-fullscreen' : ''}">
+        <section class="map-frame${mapFullscreen ? ' is-fullscreen' : ''}${labelsEnabled ? ' show-labels' : ''}" id="map-result">
           <div class="map-toolbar">
-            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
+            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="toggle-labels" aria-pressed="${labelsEnabled ? 'true' : 'false'}">${labelsEnabled ? 'Ocultar nombres' : 'Mostrar nombres'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
             <select id="coverage-mode" aria-label="Elegir tipo de cobertura"><option value="official" ${!isInfluence ? 'selected' : ''}>Sólo límites oficiales</option><option value="influence" ${isInfluence ? 'selected' : ''}>Cobertura completa · influencia analítica</option></select>
             <select id="territory-focus" aria-label="Enfocar una localidad o colonia"><option value="">Enfocar localidad o colonia…</option>${focusOptions}</select>
             <span class="source">INEGI · Marco Geoestadístico y DCAH · Hidalgo · líneas OSM</span>
@@ -1006,6 +1088,8 @@
     if (coverageSelect) coverageSelect.onchange = event => { coverageMode = event.target.value; zoom = 1; render(); };
     const osmToggle = root.querySelector('[data-action="toggle-osm"]');
     if (osmToggle) osmToggle.onclick = () => { osmEnabled = !osmEnabled; render(); };
+    const labelsToggle = root.querySelector('[data-action="toggle-labels"]');
+    if (labelsToggle) labelsToggle.onclick = () => { labelsEnabled = !labelsEnabled; render(); };
     const fullscreenToggle = root.querySelector('[data-action="fullscreen"]');
     if (fullscreenToggle) fullscreenToggle.onclick = () => { mapFullscreen = !mapFullscreen; render(); };
     if (focusSelect) focusSelect.onchange = event => {
