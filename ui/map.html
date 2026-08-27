@@ -214,7 +214,7 @@
   .result-place__name { color: var(--pc-guinda); font-size: 18px; font-weight: 700; }
   .result-place__source { margin-top: 4px; color: var(--pc-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
   .notice { margin: 18px 0 0; padding: 12px 14px; color: var(--pc-verde); background: var(--pc-success); border-left: 4px solid var(--pc-verde); font-size: 11px; line-height: 1.5; }
-  .map-frame { margin-top: 16px; overflow: hidden; background: var(--pc-surface); border: 1px solid var(--pc-line); box-shadow: var(--pc-shadow); }
+  .map-frame { position: relative; margin-top: 16px; overflow: hidden; background: var(--pc-surface); border: 1px solid var(--pc-line); box-shadow: var(--pc-shadow); }
   .map-toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 11px 12px; background: var(--pc-soft); border-bottom: 1px solid var(--pc-line); }
   .map-toolbar button { min-height: 34px; padding: 6px 10px; color: var(--pc-guinda); background: #fff; border: 1px solid #b9afa5; border-radius: 2px; cursor: pointer; font-size: 11px; }
   .map-toolbar button:hover { color: #fff; background: var(--pc-guinda); }
@@ -222,7 +222,17 @@
   .source { margin-left: auto; color: var(--pc-muted); font-size: 10px; }
   .map-wrap { height: 620px; background: #edf1ef; }
   .municipal-fill { fill-opacity: .27; }
-  .osm-roads path { stroke: #547267; opacity: .58; }
+  .osm-roads path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .osm-roads .osm-road-halo { stroke: rgba(255,255,255,.92); opacity: .82; }
+  .osm-roads .osm-road-line { stroke: #315b4c; opacity: .88; }
+  .map-frame.is-fullscreen { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; margin: 0; border: 0; background: var(--pc-canvas); box-shadow: none; }
+  .map-frame.is-fullscreen .map-toolbar { position: absolute; inset: 12px 12px auto 12px; z-index: 8; justify-content: flex-end; padding: 0; background: transparent; border: 0; pointer-events: none; }
+  .map-frame.is-fullscreen .map-toolbar > * { display: none; }
+  .map-frame.is-fullscreen .map-toolbar [data-action="fullscreen"] { display: inline-flex; align-items: center; pointer-events: auto; color: #fff; background: var(--pc-guinda); border-color: var(--pc-guinda); box-shadow: 0 3px 14px rgba(38,28,27,.22); }
+  .map-frame.is-fullscreen .map-toolbar [data-action="fullscreen"]:hover { background: var(--pc-guinda-deep); }
+  .map-frame.is-fullscreen .map-wrap { flex: 1; height: auto; min-height: 0; background: #edf1ef; }
+  .map-frame.is-fullscreen .map-key { max-width: min(360px, calc(100vw - 32px)); left: 16px; bottom: 16px; }
+  .map-fullscreen-open { overflow: hidden; }
   .osm-attribution { color: var(--pc-muted); background: rgba(255,255,255,.88); border-color: var(--pc-line); }
   .osm-attribution a { color: var(--pc-verde); }
   .territory-label { font-size: 1.7px; }
@@ -313,6 +323,7 @@
   let osmEnabled = true;
   let osmRoads = null;
   let osmRoadsLoading = false;
+  let mapFullscreen = false;
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -557,11 +568,12 @@
   function osmRoadsSvg(roads, projection, clipPaths, enabled) {
     const features = roads?.features || [];
     if (!enabled || !features.length) return '<g class="osm-roads is-hidden" aria-hidden="true"></g>';
-    const widthFor = highway => ({motorway: .42, trunk: .38, primary: .32, secondary: .27, tertiary: .21, unclassified: .14, residential: .12, living_street: .1, service: .075, track: .065, path: .05, footway: .045}[highway] || .09);
+    const widthFor = highway => ({motorway: 2.6, trunk: 2.25, primary: 1.9, secondary: 1.55, tertiary: 1.25, unclassified: .92, residential: .72, living_street: .62, service: .48, track: .38, path: .28, footway: .22}[highway] || .54);
     const paths = features.map(feature => {
       const highway = String(feature.properties?.highway || '');
       const width = widthFor(highway);
-      return `<path d="${pathFor(feature.geometry, projection)}" stroke-width="${width}" data-highway="${esc(highway)}"></path>`;
+      const d = pathFor(feature.geometry, projection);
+      return `<path class="osm-road-halo" d="${d}" stroke-width="${width + .72}" data-highway="${esc(highway)}"></path><path class="osm-road-line" d="${d}" stroke-width="${width}" data-highway="${esc(highway)}"></path>`;
     }).join('');
     return `<g class="osm-roads" clip-path="url(#municipality-clip)" role="img" aria-label="Líneas viales de OpenStreetMap recortadas al municipio">${paths}</g>`;
   }
@@ -798,6 +810,7 @@
   }
 
   function render() {
+    document.body.classList.toggle('map-fullscreen-open', mapFullscreen);
     const data = payload(result);
     const dataFeatures = data.feature_collection?.features || [];
     const baseFeatures = data.territory_background?.features || [];
@@ -959,9 +972,9 @@
         </section>
         ${publicMap ? '' : uploadPanel(true)}
         <div class="notice">${notice}</div>
-        <section class="map-frame">
+        <section class="map-frame${mapFullscreen ? ' is-fullscreen' : ''}">
           <div class="map-toolbar">
-            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button>
+            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
             <select id="coverage-mode" aria-label="Elegir tipo de cobertura"><option value="official" ${!isInfluence ? 'selected' : ''}>Sólo límites oficiales</option><option value="influence" ${isInfluence ? 'selected' : ''}>Cobertura completa · influencia analítica</option></select>
             <select id="territory-focus" aria-label="Enfocar una localidad o colonia"><option value="">Enfocar localidad o colonia…</option>${focusOptions}</select>
             <span class="source">INEGI · Marco Geoestadístico y DCAH · Hidalgo · líneas OSM</span>
@@ -993,6 +1006,8 @@
     if (coverageSelect) coverageSelect.onchange = event => { coverageMode = event.target.value; zoom = 1; render(); };
     const osmToggle = root.querySelector('[data-action="toggle-osm"]');
     if (osmToggle) osmToggle.onclick = () => { osmEnabled = !osmEnabled; render(); };
+    const fullscreenToggle = root.querySelector('[data-action="fullscreen"]');
+    if (fullscreenToggle) fullscreenToggle.onclick = () => { mapFullscreen = !mapFullscreen; render(); };
     if (focusSelect) focusSelect.onchange = event => {
       const path = [...root.querySelectorAll('.focus-target')].find(item => item.dataset.focus === event.target.value);
       if (!path) return;
@@ -1032,6 +1047,9 @@
       zoom = 1;
       render();
     }
+  });
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && mapFullscreen) { mapFullscreen = false; render(); }
   });
   render();
 })();
