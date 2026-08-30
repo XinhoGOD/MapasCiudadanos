@@ -112,7 +112,7 @@ def download_public_sheet(public_url: str, cache_dir: str | Path) -> tuple[Path,
 
 
 class HostedMapStore:
-    """Small file-backed store suitable for local use and easy cloud migration."""
+    """Store aggregate snapshots locally or in Vercel Blob when configured."""
 
     def __init__(self, root: str | Path | None = None, refresh_seconds: int | None = None):
         project_root = Path(__file__).resolve().parents[1]
@@ -128,6 +128,16 @@ class HostedMapStore:
         self.source_cache = self.root / "source-cache"
         self.root.mkdir(parents=True, exist_ok=True)
         self.source_cache.mkdir(parents=True, exist_ok=True)
+        self._blob_client = None
+        blob_token = os.getenv("BLOB_READ_WRITE_TOKEN", "").strip()
+        if blob_token:
+            try:
+                from vercel.blob import BlobClient
+            except ImportError as error:  # pragma: no cover - exercised by deployment configuration
+                raise RuntimeError(
+                    "BLOB_READ_WRITE_TOKEN está configurado, pero falta la dependencia 'vercel'."
+                ) from error
+            self._blob_client = BlobClient(token=blob_token)
         configured_refresh = os.getenv("SHEET_REFRESH_SECONDS", "").strip()
         try:
             refresh_value = int(refresh_seconds) if refresh_seconds is not None else int(configured_refresh or "60")
@@ -136,22 +146,77 @@ class HostedMapStore:
         self.refresh_seconds = max(15, refresh_value)
         self._lock = threading.Lock()
 
+    @property
+    def uses_persistent_storage(self) -> bool:
+        return self._blob_client is not None
+
+    def _artifact_path(self, key: str) -> Path:
+        return self.root / Path(key)
+
+    def _write_artifact(self, key: str, content: bytes, content_type: str) -> None:
+        if self._blob_client is not None:
+            self._blob_client.put(
+                f"mapas-ciudadanos/{key}",
+                content,
+                access="private",
+                content_type=content_type,
+                overwrite=True,
+            )
+            return
+        target = self._artifact_path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.tmp")
+        temporary.write_bytes(content)
+        temporary.replace(target)
+
+    def _read_artifact(self, key: str) -> bytes | None:
+        if self._blob_client is not None:
+            try:
+                blob = self._blob_client.get(
+                    f"mapas-ciudadanos/{key}",
+                    access="private",
+                    use_cache=False,
+                )
+            except Exception as error:
+                if error.__class__.__name__ in {"BlobNotFoundError", "BlobPathnameMismatchError"}:
+                    return None
+                raise
+            return bytes(blob) if blob is not None else None
+        target = self._artifact_path(key)
+        return target.read_bytes() if target.exists() else None
+
+    def _has_artifact(self, key: str) -> bool:
+        try:
+            return self._read_artifact(key) is not None
+        except Exception:
+            return False
+
+    def write_binary(self, key: str, content: bytes, content_type: str) -> None:
+        """Persist a generated binary artifact such as a terrain or preview image."""
+        self._write_artifact(key, content, content_type)
+
+    def read_binary(self, key: str) -> bytes | None:
+        """Read a persisted binary artifact, returning None when absent."""
+        return self._read_artifact(key)
+
+    def has_binary(self, key: str) -> bool:
+        return self._has_artifact(key)
+
     def _path(self, map_id: str) -> Path:
         if not MAP_ID_PATTERN.fullmatch(map_id):
             raise ValueError("El identificador del mapa no es válido.")
         return self.root / f"{map_id}.json"
 
     def _write(self, envelope: dict[str, Any]) -> None:
-        target = self._path(str(envelope["map_id"]))
-        temporary = target.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(envelope, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(target)
+        content = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
+        self._write_artifact(f"{envelope['map_id']}.json", content, "application/json")
 
     def get(self, map_id: str) -> dict[str, Any]:
-        path = self._path(map_id)
-        if not path.exists():
+        self._path(map_id)
+        content = self._read_artifact(f"{map_id}.json")
+        if content is None:
             raise FileNotFoundError("No encontré el mapa solicitado.")
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(content.decode("utf-8"))
 
     def create(self, result: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
         map_id = _map_id()

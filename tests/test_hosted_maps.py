@@ -4,7 +4,7 @@ import pytest
 from starlette.requests import Request
 
 from app.hosted_maps import HostedMapStore, PublicSheetError, _sheet_export_url
-from scripts.hosted_map_server import _public_page
+from scripts.hosted_map_server import _preview_svg, _public_page
 
 
 def test_sheet_export_url_is_restricted_to_public_google_sheets():
@@ -23,6 +23,53 @@ def test_store_persists_only_the_aggregate_snapshot(tmp_path: Path):
     loaded = store.get(envelope["map_id"])
     assert loaded["result"] == result
     assert loaded["source"]["label"] == "encuesta.xlsx"
+
+
+def test_store_uses_blob_when_a_vercel_token_is_configured(tmp_path: Path, monkeypatch):
+    class FakeBlob:
+        objects = {}
+
+        def __init__(self, token=None):
+            assert token == "test-token"
+
+        def put(self, path, body, **_):
+            self.objects[path] = bytes(body)
+
+        def get(self, path, **_):
+            content = self.objects.get(path)
+            return type("BlobResult", (), {"__bytes__": lambda self: content})() if content is not None else None
+
+    import vercel.blob
+
+    monkeypatch.setenv("BLOB_READ_WRITE_TOKEN", "test-token")
+    monkeypatch.setattr(vercel.blob, "BlobClient", FakeBlob)
+    store = HostedMapStore(tmp_path)
+    envelope = store.create({"map_type": "dominant"}, {"type": "file"})
+
+    assert store.uses_persistent_storage is True
+    assert store.get(envelope["map_id"])["result"]["map_type"] == "dominant"
+
+
+def test_preview_svg_contains_map_and_legend():
+    envelope = {
+        "map_id": "abcdefghijklmnop",
+        "result": {
+            "municipality": "Pacula",
+            "question": "Pregunta",
+            "response_categories": ["A"],
+            "background": {"features": [{"geometry": {"type": "Polygon", "coordinates": [[[-99, 21], [-98, 21], [-98, 20], [-99, 20], [-99, 21]]]}}]},
+            "territory_background": {"features": []},
+            "feature_collection": {"features": [{"geometry": {"type": "Polygon", "coordinates": [[[-99, 21], [-98.5, 21], [-98.5, 20.5], [-99, 21]]]}, "properties": {"locality": "Centro", "dominant_answer": "A"}}]},
+            "influence_sites": [],
+        },
+    }
+
+    svg = _preview_svg(envelope)
+
+    assert svg.startswith("<svg")
+    assert "Pacula" in svg
+    assert "Respuesta predominante" in svg
+    assert "Centro" in svg
 
 
 def test_public_page_bootstraps_map_without_public_upload_controls(tmp_path: Path, monkeypatch):

@@ -13,6 +13,7 @@ import os
 import re
 import secrets
 import sys
+from html import escape as escape_xml
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -23,7 +24,7 @@ from starlette.applications import Starlette
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -40,6 +41,14 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 MAX_TERRAIN_BYTES = 8 * 1024 * 1024
 ALLOWED_SUFFIXES = {".xlsx", ".xls", ".csv"}
 store = HostedMapStore()
+
+
+def _require_durable_storage() -> None:
+    if (os.getenv("VERCEL") or os.getenv("VERCEL_ENV")) and not store.uses_persistent_storage:
+        raise ValueError(
+            "El servidor está en Vercel, pero no tiene almacenamiento persistente. "
+            "Conecta un almacén Vercel Blob al proyecto y configura BLOB_READ_WRITE_TOKEN."
+        )
 
 
 def _safe_json(value: Any) -> str:
@@ -118,6 +127,174 @@ def _bbox_parameter(features: list[dict[str, Any]]) -> str | None:
     return ",".join(f"{value:.7f}" for value in (min(latitudes), min(longitudes), max(latitudes), max(longitudes)))
 
 
+PREVIEW_COLORS = ["#7b1e3a", "#1f5a4a", "#b38b59", "#4b6682", "#9c5a4f", "#3b806d", "#866b46", "#5a7182"]
+
+
+def _preview_rings(geometry: dict[str, Any] | None) -> list[list[list[float]]]:
+    if not geometry:
+        return []
+    kind = geometry.get("type")
+    coordinates = geometry.get("coordinates", [])
+    if kind == "Polygon":
+        return [ring for ring in coordinates if isinstance(ring, list) and len(ring) >= 3]
+    if kind == "MultiPolygon":
+        return [
+            ring
+            for polygon in coordinates
+            if isinstance(polygon, list)
+            for ring in polygon
+            if isinstance(ring, list) and len(ring) >= 3
+        ]
+    if kind == "GeometryCollection":
+        rings: list[list[list[float]]] = []
+        for child in geometry.get("geometries", []):
+            rings.extend(_preview_rings(child))
+        return rings
+    return []
+
+
+def _preview_projection(result: dict[str, Any]):
+    feature_groups = [
+        result.get("background", {}).get("features", []),
+        result.get("territory_background", {}).get("features", []),
+        result.get("feature_collection", {}).get("features", []),
+    ]
+    points = [
+        point
+        for group in feature_groups
+        for feature in group
+        for point in _coordinates(feature.get("geometry", {}).get("coordinates"))
+    ]
+    if not points:
+        points = [
+            (float(site["longitude"]), float(site["latitude"]))
+            for site in result.get("influence_sites", [])
+            if site.get("longitude") is not None and site.get("latitude") is not None
+        ]
+    if not points:
+        return lambda point: (500.0, 350.0)
+    min_x = min(point[0] for point in points)
+    max_x = max(point[0] for point in points)
+    min_y = min(point[1] for point in points)
+    max_y = max(point[1] for point in points)
+    span = max(max_x - min_x, max_y - min_y, 0.001)
+    padding = span * 0.06
+    min_x -= padding
+    max_x += padding
+    min_y -= padding
+    max_y += padding
+
+    def project(point: tuple[float, float]) -> tuple[float, float]:
+        x = (point[0] - min_x) / max(max_x - min_x, 1e-9) * 1000
+        y = (max_y - point[1]) / max(max_y - min_y, 1e-9) * 700
+        return round(x, 2), round(y, 2)
+
+    return project
+
+
+def _preview_path(geometry: dict[str, Any] | None, project) -> str:
+    paths: list[str] = []
+    for ring in _preview_rings(geometry):
+        points = []
+        for point in ring:
+            if isinstance(point, list) and len(point) >= 2:
+                try:
+                    points.append(project((float(point[0]), float(point[1]))))
+                except (TypeError, ValueError):
+                    continue
+        if len(points) >= 3:
+            commands = [f"M {points[0][0]} {points[0][1]}"]
+            commands.extend(f"L {x} {y}" for x, y in points[1:])
+            commands.append("Z")
+            paths.append(" ".join(commands))
+    return " ".join(paths)
+
+
+def _preview_anchor(feature: dict[str, Any], project) -> tuple[float, float] | None:
+    points = _coordinates(feature.get("geometry", {}).get("coordinates"))
+    if not points:
+        return None
+    longitude = sum(point[0] for point in points) / len(points)
+    latitude = sum(point[1] for point in points) / len(points)
+    return project((longitude, latitude))
+
+
+def _preview_color(properties: dict[str, Any], categories: list[str]) -> str:
+    answer = str(properties.get("dominant_answer") or "")
+    if not answer and properties.get("answer_counts"):
+        answer = max(properties["answer_counts"].items(), key=lambda item: int(item[1]))[0]
+    try:
+        index = categories.index(answer)
+    except ValueError:
+        index = 0
+    return PREVIEW_COLORS[index % len(PREVIEW_COLORS)] if answer else "#dfeae2"
+
+
+def _preview_svg(envelope: dict[str, Any]) -> str:
+    result = envelope.get("result", {})
+    project = _preview_projection(result)
+    categories = [str(category) for category in result.get("response_categories", [])]
+    background = result.get("background", {}).get("features", [])
+    territory = result.get("territory_background", {}).get("features", [])
+    data_features = result.get("feature_collection", {}).get("features", [])
+    paths: list[str] = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" role="img" aria-labelledby="preview-title preview-description">',
+        '<title id="preview-title">Vista previa cartográfica</title>',
+        f'<desc id="preview-description">Mapa de {escape_xml(str(result.get("municipality") or "Hidalgo"))} con respuesta predominante por localidad.</desc>',
+        '<rect width="1000" height="700" fill="#edf2ef"/>',
+    ]
+    for feature in background:
+        path = _preview_path(feature.get("geometry"), project)
+        if path:
+            paths.append(f'<path d="{path}" fill="#f7f8f7" stroke="#547364" stroke-width="2.2"/>')
+    for feature in territory:
+        path = _preview_path(feature.get("geometry"), project)
+        if path:
+            paths.append(f'<path d="{path}" fill="#dfeae2" fill-opacity=".55" stroke="#9aafa4" stroke-width=".65"/>')
+    labels: list[tuple[float, float, str, str]] = []
+    for feature in data_features:
+        properties = feature.get("properties", {})
+        path = _preview_path(feature.get("geometry"), project)
+        if not path:
+            continue
+        color = _preview_color(properties, categories)
+        paths.append(f'<path d="{path}" fill="{color}" fill-opacity=".78" stroke="#ffffff" stroke-width="1.15"/>')
+        anchor = _preview_anchor(feature, project)
+        if anchor:
+            labels.append((anchor[0], anchor[1], str(properties.get("locality") or ""), color))
+    for site in result.get("influence_sites", []):
+        if site.get("longitude") is None or site.get("latitude") is None:
+            continue
+        x, y = project((float(site["longitude"]), float(site["latitude"])))
+        color = _preview_color(site, categories)
+        paths.append(f'<circle cx="{x}" cy="{y}" r="5.5" fill="{color}" stroke="#ffffff" stroke-width="1.5"/>')
+    for x, y, label, _ in labels:
+        if label:
+            paths.append(
+                f'<text x="{x + 7}" y="{y + 3}" fill="#252525" font-family="Montserrat, Arial, sans-serif" font-size="10" font-weight="600" paint-order="stroke" stroke="#ffffff" stroke-width="3">{escape_xml(label)}</text>'
+            )
+    title = escape_xml(str(result.get("municipality") or "Mapa de Hidalgo"))
+    question = escape_xml(str(result.get("question") or "Respuesta predominante"))
+    paths.extend([
+        '<rect x="18" y="18" width="310" height="76" rx="4" fill="#ffffff" fill-opacity=".94" stroke="#d8d2c8"/>',
+        f'<text x="32" y="45" fill="#611232" font-family="Montserrat, Arial, sans-serif" font-size="17" font-weight="700">{title}</text>',
+        f'<text x="32" y="68" fill="#686868" font-family="Montserrat, Arial, sans-serif" font-size="11">{question}</text>',
+    ])
+    if categories:
+        legend_height = 28 + len(categories) * 22
+        x = 18
+        y = 660 - legend_height
+        paths.append(f'<rect x="{x}" y="{y}" width="310" height="{legend_height}" rx="4" fill="#ffffff" fill-opacity=".94" stroke="#d8d2c8"/>')
+        paths.append(f'<text x="{x + 14}" y="{y + 20}" fill="#4b0d27" font-family="Montserrat, Arial, sans-serif" font-size="11" font-weight="700">Respuesta predominante</text>')
+        for index, category in enumerate(categories):
+            item_y = y + 39 + index * 22
+            paths.append(f'<circle cx="{x + 20}" cy="{item_y - 3}" r="5" fill="{PREVIEW_COLORS[index % len(PREVIEW_COLORS)]}"/>')
+            paths.append(f'<text x="{x + 34}" y="{item_y}" fill="#333333" font-family="Montserrat, Arial, sans-serif" font-size="10">{escape_xml(category)}</text>')
+    paths.append('<text x="985" y="684" text-anchor="end" fill="#68766f" font-family="Montserrat, Arial, sans-serif" font-size="9">Vista previa · INEGI / Hidalgo</text>')
+    paths.append('</svg>')
+    return "".join(paths)
+
+
 def _terrain_path(map_id: str) -> Path:
     if not re.fullmatch(r"[A-Za-z0-9_-]{16,32}", map_id):
         raise ValueError("El identificador del mapa no es válido.")
@@ -126,9 +303,18 @@ def _terrain_path(map_id: str) -> Path:
     return destination
 
 
+def _terrain_key(map_id: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{16,32}", map_id):
+        raise ValueError("El identificador del mapa no es válido.")
+    return f"terrain/{map_id}.jpg"
+
+
 def _ensure_terrain(envelope: dict[str, Any]) -> Path | None:
-    destination = _terrain_path(str(envelope["map_id"]))
-    if destination.exists() and destination.stat().st_size:
+    map_id = str(envelope["map_id"])
+    destination = _terrain_path(map_id)
+    if store.uses_persistent_storage and store.has_binary(_terrain_key(map_id)):
+        return None
+    if not store.uses_persistent_storage and destination.exists() and destination.stat().st_size:
         return destination
     result = envelope.get("result", {})
     features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
@@ -153,6 +339,9 @@ def _ensure_terrain(envelope: dict[str, Any]) -> Path | None:
             content = response.read(MAX_TERRAIN_BYTES + 1)
             content_type = response.headers.get("Content-Type", "")
         if len(content) > MAX_TERRAIN_BYTES or not content_type.startswith("image/"):
+            return None
+        if store.uses_persistent_storage:
+            store.write_binary(_terrain_key(map_id), content, "image/jpeg")
             return None
         temporary = destination.with_suffix(".jpg.tmp")
         temporary.write_bytes(content)
@@ -192,6 +381,7 @@ async def inspect_public_sheet(request: Request) -> JSONResponse:
 
 async def create_map(request: Request) -> JSONResponse:
     try:
+        _require_durable_storage()
         form = await request.form()
         sheet_url = str(form.get("sheet_url") or "").strip()
         municipality = str(form.get("municipality") or "").strip() or None
@@ -263,9 +453,11 @@ async def create_map(request: Request) -> JSONResponse:
         envelope = store.create(result, source)
         _ensure_terrain(envelope)
         map_url = f"{_base_url(request)}/maps/{envelope['map_id']}"
+        preview_url = f"{_base_url(request)}/maps/{envelope['map_id']}/preview.svg"
         return JSONResponse({
             "map_id": envelope["map_id"],
             "map_url": map_url,
+            "preview_url": preview_url,
             "version": envelope["version"],
             "source_type": source_type,
             "municipality": result.get("municipality"),
@@ -311,10 +503,32 @@ async def map_version(request: Request) -> JSONResponse:
 async def terrain(request: Request) -> FileResponse | JSONResponse:
     try:
         envelope = store.get(request.path_params["map_id"])
+        if store.uses_persistent_storage:
+            content = store.read_binary(_terrain_key(str(envelope["map_id"])))
+            if content is None:
+                _ensure_terrain(envelope)
+                content = store.read_binary(_terrain_key(str(envelope["map_id"])))
+            if not content:
+                return _error("No hay relieve disponible para este mapa.", 404)
+            return Response(content, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
         path = _ensure_terrain(envelope)
         if not path:
             return _error("No hay relieve disponible para este mapa.", 404)
         return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+    except FileNotFoundError:
+        return _error("No encontré ese mapa público.", 404)
+    except ValueError as error:
+        return _error(str(error), 400)
+
+
+async def preview(request: Request) -> Response | JSONResponse:
+    try:
+        envelope = store.get(request.path_params["map_id"])
+        return Response(
+            _preview_svg(envelope),
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
     except FileNotFoundError:
         return _error("No encontré ese mapa público.", 404)
     except ValueError as error:
@@ -347,6 +561,7 @@ routes = [
     Route("/api/maps", create_map, methods=["POST"]),
     Route("/api/maps/{map_id}/version", map_version, methods=["GET"]),
     Route("/maps/{map_id}/terrain.jpg", terrain, methods=["GET"]),
+    Route("/maps/{map_id}/preview.svg", preview, methods=["GET"]),
     Route("/api/maps/{map_id}/osm-roads", osm_roads, methods=["GET"]),
     Route("/maps/{map_id}", public_map, methods=["GET"]),
     Mount("/assets", app=StaticFiles(directory=ROOT / "ui" / "assets"), name="assets"),

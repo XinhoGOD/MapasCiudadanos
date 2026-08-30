@@ -9,3 +9,4 @@ rapidfuzz>=3.0.0
 pyshp>=3.0.0
 pyproj>=3.6.0
 pytest>=8.0.0
+vercel>=0.5.0,<0.11

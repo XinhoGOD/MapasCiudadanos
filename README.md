@@ -119,9 +119,10 @@ Variables opcionales:
 PUBLIC_BASE_URL=https://mapas.ejemplo.gob.mx
 HOSTED_MAPS_DIR=work/hosted-maps
 SHEET_REFRESH_SECONDS=60
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 ```
 
-El almacenamiento actual es un directorio JSON local, adecuado para la copia de trabajo y para una primera puesta en marcha. En producción con varias instancias conviene migrarlo a una base de datos y almacenamiento persistente, manteniendo la misma interfaz del `HostedMapStore`.
+En local, los mapas se guardan como JSON en `work/hosted-maps`. En Vercel, crea y conecta un almacén **Vercel Blob** de acceso privado al proyecto y agrega `BLOB_READ_WRITE_TOKEN` en Project Settings → Environment Variables; cuando esa variable existe, los snapshots y relieves se guardan en Blob privado y el servidor los entrega mediante las URLs públicas de cada mapa. Esto evita perder los enlaces al reiniciar una función o hacer un nuevo despliegue. Si Vercel no tiene esa variable, la API detiene la creación para no volver a generar enlaces efímeros. La vista previa es un SVG estático generado desde la agregación territorial, sin publicar el archivo original.
 
 ## Identidad institucional
 

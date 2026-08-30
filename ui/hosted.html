@@ -156,6 +156,9 @@
     .reference-status.error { color: #942e3f; }
     .reference-success { margin-top: 16px; padding: 12px; color: var(--verde); background: #e7f0ec; border-left: 4px solid var(--verde); font-size: 11px; line-height: 1.5; }
     .reference-success a { display: block; margin-top: 5px; color: var(--ref-tinto); font-weight: 700; overflow-wrap: anywhere; }
+    .reference-preview { margin-top: 16px; overflow: hidden; background: #f8f8f8; border: 1px solid var(--ref-line); }
+    .reference-preview__head { padding: 9px 11px; color: var(--ref-tinto); background: #fff; border-bottom: 1px solid var(--ref-line); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .reference-preview img { display: block; width: 100%; height: auto; aspect-ratio: 10 / 7; object-fit: contain; }
     .reference-privacy { margin-top: 14px; color: #777; font-size: 10px; line-height: 1.45; }
     .reference-footer { width: 100%; margin-top: auto; padding: 32px 0; color: #fff; background: var(--ref-dark); border-top: 3px solid var(--ref-tinto); }
     .reference-footer__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
@@ -208,6 +211,7 @@
             <button class="reference-render" id="submit" type="submit">Ejecutar Renderizado</button>
             <div id="status" class="reference-status" aria-live="polite"></div>
             <div id="success" class="reference-success" hidden></div>
+            <div id="preview" class="reference-preview" hidden><div class="reference-preview__head">Vista previa cartográfica</div><img id="preview-image" alt="Vista previa del mapa generado"></div>
             <div class="reference-privacy">Sólo se conserva una síntesis territorial. El archivo original no se publica.</div>
           </section>
         </div>
@@ -223,6 +227,8 @@
       const submit = document.getElementById('submit');
       const status = document.getElementById('status');
       const success = document.getElementById('success');
+      const preview = document.getElementById('preview');
+      const previewImage = document.getElementById('preview-image');
       const sheetUrl = document.getElementById('sheet-url');
       const municipality = document.getElementById('municipality');
       const question = document.getElementById('question');
@@ -257,6 +263,8 @@
       form.addEventListener('submit', async event => {
         event.preventDefault();
         success.hidden = true;
+        preview.hidden = true;
+        previewImage.removeAttribute('src');
         status.className = 'reference-status';
         status.textContent = 'Descargando la fuente y generando el mapa…';
         submit.disabled = true;
@@ -269,6 +277,11 @@
           if (!response.ok) throw new Error(data.error || 'No se pudo generar el mapa.');
           success.innerHTML = `Mapa generado correctamente.<br><a href="${escapeHtml(data.map_url)}">${escapeHtml(data.map_url)}</a>`;
           success.hidden = false;
+          if (data.preview_url) {
+            previewImage.src = data.preview_url;
+            previewImage.alt = `Vista previa del mapa de ${data.municipality || 'Hidalgo'}`;
+            preview.hidden = false;
+          }
           status.textContent = `${data.source_type === 'google_sheets' ? 'Fuente: Google Sheets público.' : 'Fuente: archivo local.'} El mapa contiene sólo datos agregados.`;
         } catch (error) {
           status.className = 'reference-status error';
