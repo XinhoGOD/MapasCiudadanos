@@ -144,6 +144,7 @@
     .reference-help { display: flex; gap: 6px; align-items: center; margin: 9px 0 0; color: #777 !important; font-size: 10px !important; }
     .reference-help::before { content: "i"; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: #fff; background: var(--ref-gray); border-radius: 50%; font-size: 9px; font-weight: 700; }
     .reference-parameters { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .reference-sheet-choice { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--ref-line); }
     .reference-file { margin-top: 21px; padding-top: 18px; border-top: 1px solid var(--ref-line); }
     .reference-file input { background: #f8f8f8; }
     .reference-processing__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 0 32px; text-align: center; }
@@ -198,6 +199,7 @@
           </section>
           <section class="reference-card" id="parametros" aria-labelledby="parameters-title">
             <div class="reference-card__head"><span class="reference-step">02</span><h2 id="parameters-title">Parámetros Espaciales</h2></div>
+            <div class="reference-field reference-sheet-choice"><div class="reference-field__heading"><label class="reference-label" for="sheet-name">Elige la hoja de tu Google Sheets</label><span class="reference-optional">elige una pestaña</span></div><select class="reference-select" id="sheet-name" name="sheet_name" disabled><option value="">Primero sincroniza la fuente</option></select></div>
             <div class="reference-parameters">
               <div class="reference-field"><div class="reference-field__heading"><label class="reference-label" for="municipality">Demarcación Territorial</label><span class="reference-optional">se detecta solo</span></div><select class="reference-select" id="municipality" name="municipality" disabled><option value="">Primero sincroniza la fuente</option></select></div>
               <div class="reference-field"><div class="reference-field__heading"><label class="reference-label" for="question">Variable Analítica</label><span class="reference-optional">se detecta sola</span></div><select class="reference-select" id="question" name="question" disabled><option value="">Primero sincroniza la fuente</option></select></div>
@@ -230,9 +232,11 @@
       const preview = document.getElementById('preview');
       const previewImage = document.getElementById('preview-image');
       const sheetUrl = document.getElementById('sheet-url');
+      const sheetName = document.getElementById('sheet-name');
       const municipality = document.getElementById('municipality');
       const question = document.getElementById('question');
       let sheetReady = false;
+      let inspectedUrl = '';
       const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
       const resetSelect = (select, label) => { select.innerHTML = `<option value="">${label}</option>`; select.value = ''; select.disabled = true; };
       const fillSelect = (select, values, placeholder) => {
@@ -240,16 +244,34 @@
         select.disabled = values.length === 0;
         if (values.length === 1) select.value = values[0];
       };
+      const fillSheetSelect = values => {
+        const names = values.map(item => typeof item === 'string' ? item : item.name).filter(Boolean);
+        const selected = sheetName.value.trim();
+        fillSelect(sheetName, names, names.length ? 'Selecciona una hoja' : 'No se encontraron hojas');
+        if (selected && names.includes(selected)) sheetName.value = selected;
+      };
       const inspectSheet = async () => {
         const url = sheetUrl.value.trim();
         sheetReady = false;
+        if (url !== inspectedUrl) {
+          inspectedUrl = url;
+          resetSelect(sheetName, url ? 'Detectando hojas…' : 'Primero pega el enlace público');
+        }
         if (!url) { resetSelect(municipality, 'Primero pega el enlace público'); resetSelect(question, 'Primero pega el enlace público'); return; }
         status.className = 'reference-status';
         status.textContent = 'Leyendo municipios y preguntas de Google Sheets…';
         const body = new URLSearchParams({sheet_url: url});
+        if (sheetName.value.trim()) body.set('sheet_name', sheetName.value.trim());
         const response = await fetch('/api/sheets/inspect', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body});
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'No se pudo leer la hoja pública.');
+        fillSheetSelect(data.sheets || []);
+        if (data.requires_sheet_selection) {
+          resetSelect(municipality, 'Primero elige una hoja');
+          resetSelect(question, 'Primero elige una hoja');
+          status.textContent = 'El enlace contiene varias hojas. Elige una para continuar.';
+          return;
+        }
         fillSelect(municipality, data.municipalities || [], 'Selecciona un municipio');
         fillSelect(question, data.questions || [], 'Selecciona una pregunta');
         sheetReady = true;
@@ -260,6 +282,7 @@
       if (syncSheet) syncSheet.addEventListener('click', () => inspectSheet().catch(showSheetError));
       sheetUrl.addEventListener('change', () => inspectSheet().catch(showSheetError));
       sheetUrl.addEventListener('blur', () => { if (!sheetReady && sheetUrl.value.trim()) inspectSheet().catch(showSheetError); });
+      sheetName.addEventListener('change', () => inspectSheet().catch(showSheetError));
       form.addEventListener('submit', async event => {
         event.preventDefault();
         success.hidden = true;

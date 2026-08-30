@@ -109,7 +109,7 @@ Esta copia agrega un flujo web independiente del inspector MCP. Permite pegar el
 py -3.13 scripts/hosted_map_server.py --host 127.0.0.1 --port 8770
 ```
 
-Abre `http://127.0.0.1:8770/`. Al pegar la URL, la pantalla consulta la hoja y llena selectores con sus municipios y preguntas; ya no es necesario escribir esos valores. Si sólo hay una opción, queda seleccionada automáticamente. El mapa público muestra sólo la agregación territorial: cada localidad/colonia se pinta con el color de la respuesta más frecuente, coloca un punto y etiqueta su nombre, y muestra un relieve topográfico descargado y cacheado para el mapa. No expone el Excel, las filas ni los datos individuales.
+Abre `http://127.0.0.1:8770/`. Al pegar la URL, la pantalla consulta el libro y muestra el selector **Elige la hoja de tu Google Sheets**; después llena automáticamente los municipios y preguntas de la pestaña elegida. Si sólo hay una hoja, queda seleccionada automáticamente. El mapa público muestra sólo la agregación territorial: cada localidad/colonia se pinta con el color de la respuesta más frecuente, coloca un punto y etiqueta su nombre, y muestra un relieve topográfico descargado y cacheado para el mapa. No expone el Excel, las filas ni los datos individuales.
 
 Cuando la fuente es Google Sheets, el servidor revisa la hoja periódicamente (60 segundos por defecto), compara su huella de contenido y conserva el mapa anterior si una actualización falla. No usa Apps Script: consume el export CSV HTTPS de una hoja con permiso de lectura público. La URL local sólo es visible en tu computadora; para compartirla por internet configura una dirección HTTPS en `PUBLIC_BASE_URL` y despliega este servidor en un host que ejecute Python.
 

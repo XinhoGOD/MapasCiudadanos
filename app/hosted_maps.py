@@ -58,7 +58,7 @@ def _map_id() -> str:
     return secrets.token_urlsafe(18).replace("-", "_")
 
 
-def _sheet_export_url(public_url: str) -> str:
+def _sheet_export_url(public_url: str, sheet_gid: str | None = None, file_format: str = "csv") -> str:
     parts = urlsplit(public_url.strip())
     if parts.scheme != "https" or parts.hostname != "docs.google.com" or parts.username or parts.password or parts.port:
         raise PublicSheetError("Usa un enlace HTTPS público de Google Sheets (docs.google.com).")
@@ -66,19 +66,25 @@ def _sheet_export_url(public_url: str) -> str:
     if not match:
         raise PublicSheetError("No pude identificar el ID de la hoja en el enlace proporcionado.")
     query = parse_qs(parts.query)
-    gid = query.get("gid", [None])[0]
+    gid = sheet_gid or query.get("gid", [None])[0]
     if not gid and parts.fragment:
         fragment_query = parse_qs(parts.fragment.lstrip("#?"))
         gid = fragment_query.get("gid", [None])[0]
-    parameters = {"format": "csv"}
+    if file_format not in {"csv", "xlsx"}:
+        raise PublicSheetError("El formato de exportación de Google Sheets no es válido.")
+    parameters = {"format": file_format}
     if gid and re.fullmatch(r"\d+", gid):
         parameters["gid"] = gid
     return f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?{urlencode(parameters)}"
 
 
-def download_public_sheet(public_url: str, cache_dir: str | Path) -> tuple[Path, str]:
-    """Download one public sheet tab as CSV and return path plus content hash."""
-    export_url = _sheet_export_url(public_url)
+def _download_public_file(
+    public_url: str,
+    cache_dir: str | Path,
+    file_format: str,
+    sheet_gid: str | None = None,
+) -> tuple[Path, str]:
+    export_url = _sheet_export_url(public_url, sheet_gid=sheet_gid, file_format=file_format)
     request = Request(
         export_url,
         headers={"User-Agent": "MapaParticipacionCiudadana/0.1 (+public-sheet-import)"},
@@ -106,9 +112,23 @@ def download_public_sheet(public_url: str, cache_dir: str | Path) -> tuple[Path,
     cache = Path(cache_dir)
     cache.mkdir(parents=True, exist_ok=True)
     url_key = hashlib.sha256(export_url.encode("utf-8")).hexdigest()
-    destination = cache / f"{url_key}.csv"
+    destination = cache / f"{url_key}.{file_format}"
     destination.write_bytes(content)
     return destination, hashlib.sha256(content).hexdigest()
+
+
+def download_public_sheet(
+    public_url: str,
+    cache_dir: str | Path,
+    sheet_gid: str | None = None,
+) -> tuple[Path, str]:
+    """Download one public sheet tab as CSV and return path plus content hash."""
+    return _download_public_file(public_url, cache_dir, "csv", sheet_gid=sheet_gid)
+
+
+def download_public_workbook(public_url: str, cache_dir: str | Path) -> tuple[Path, str]:
+    """Download a public Google Sheets workbook so its tabs can be selected."""
+    return _download_public_file(public_url, cache_dir, "xlsx")
 
 
 class HostedMapStore:
@@ -250,12 +270,13 @@ class HostedMapStore:
                 return envelope
             source["checked_at"] = iso_now()
             try:
-                sheet_path, content_hash = download_public_sheet(source["url"], self.source_cache)
+                sheet_path, content_hash = download_public_workbook(source["url"], self.source_cache)
                 if content_hash != source.get("content_hash"):
                     result = generate_dominant_answer_map(
                         file_path=str(sheet_path),
                         municipality=source.get("municipality") or None,
                         question=source.get("question") or None,
+                        sheet_name=source.get("sheet_name") or None,
                     )
                     envelope["result"] = result
                     envelope["version"] = _result_version(result)

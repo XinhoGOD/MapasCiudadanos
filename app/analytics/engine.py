@@ -21,8 +21,8 @@ def _single_frame(dataset):
     return dataset.frame.copy()
 
 
-def inspect_dataset(file_path: str | None = None, file: Any = None) -> dict[str, Any]:
-    dataset = load_dataset(file_path, file)
+def inspect_dataset(file_path: str | None = None, file: Any = None, sheet_name: str | None = None) -> dict[str, Any]:
+    dataset = load_dataset(file_path, file, sheet_name=sheet_name)
     sheet_summaries = [
         {"name": name, "records": int(len(frame)), "columns": [str(column) for column in frame.columns]}
         for name, frame in dataset.frames.items()
@@ -664,8 +664,9 @@ def generate_dominant_answer_map(
     municipality: str | None = None,
     question: str | None = None,
     catalog_path: str | None = None,
+    sheet_name: str | None = None,
 ) -> dict[str, Any]:
-    dataset = load_dataset(file_path, file)
+    dataset = load_dataset(file_path, file, sheet_name=sheet_name)
     frame, _, _, locality_column, chosen_question, resolved_municipality = _context(
         dataset, municipality, question
     )

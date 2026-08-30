@@ -57,7 +57,13 @@ def resolve_file_input(file_path: str | None = None, file: Any = None) -> Path:
 
 def _clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.dropna(axis=0, how="all").dropna(axis=1, how="all").copy()
-    frame.columns = [str(column).strip() if str(column).strip() else f"columna_{index + 1}" for index, column in enumerate(frame.columns)]
+    names: list[str] = []
+    seen: dict[str, int] = {}
+    for index, column in enumerate(frame.columns):
+        base = str(column).strip() if str(column).strip() else f"columna_{index + 1}"
+        seen[base] = seen.get(base, 0) + 1
+        names.append(base if seen[base] == 1 else f"{base} ({seen[base]})")
+    frame.columns = names
     return frame.reset_index(drop=True)
 
 
@@ -144,7 +150,7 @@ def _read_csv(path: Path) -> tuple[dict[str, pd.DataFrame], list[str]]:
     raise ValueError("No pude leer la codificación del CSV.")
 
 
-def load_dataset(file_path: str | None = None, file: Any = None) -> SurveyDataset:
+def load_dataset(file_path: str | None = None, file: Any = None, sheet_name: str | None = None) -> SurveyDataset:
     path = resolve_file_input(file_path, file)
     if path.suffix.lower() == ".csv":
         frames, warnings = _read_csv(path)
@@ -152,4 +158,9 @@ def load_dataset(file_path: str | None = None, file: Any = None) -> SurveyDatase
         frames, warnings = _read_excel(path)
     if not frames:
         raise ValueError("No encontré hojas con registros utilizables en el archivo.")
+    if sheet_name:
+        if sheet_name not in frames:
+            available = ", ".join(frames)
+            raise ValueError(f"No encontré la hoja '{sheet_name}'. Hojas disponibles: {available}.")
+        frames = {sheet_name: frames[sheet_name]}
     return SurveyDataset(path.name, list(frames), frames, warnings)

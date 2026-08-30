@@ -287,7 +287,21 @@ def test_xlsx_with_multiple_sheets_is_read(tmp_path):
         pd.DataFrame({"nota": ["hoja auxiliar"]}).to_excel(writer, sheet_name="Notas", index=False)
     inspection = inspect_dataset(file_path=str(workbook))
     assert {sheet["name"] for sheet in inspection["sheets"]} == {"Respuestas", "Notas"}
-    assert inspection["records"] == 2
+    selected = inspect_dataset(file_path=str(workbook), sheet_name="Respuestas")
+    assert selected["sheets"] == [{"name": "Respuestas", "records": 1, "columns": ["Municipio", "Localidad", "Pregunta"]}]
+
+
+def test_duplicate_headers_are_made_unique_before_schema_detection(tmp_path):
+    import pandas as pd
+
+    source = tmp_path / "duplicated.csv"
+    pd.DataFrame(
+        [["Municipio", "Municipio", "Localidad", "Pregunta"], ["Pacula", "Pacula", "Centro", "Sí"]]
+    ).to_csv(source, index=False, header=False)
+
+    inspection = inspect_dataset(file_path=str(source))
+
+    assert "Municipio (2)" in inspection["schema"]["columns"][1]["name"]
 
 
 def test_xlsx_formulas_are_reported_and_never_executed(tmp_path):

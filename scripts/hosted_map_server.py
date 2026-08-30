@@ -33,7 +33,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.analytics import generate_dominant_answer_map, inspect_dataset  # noqa: E402
-from app.hosted_maps import HostedMapStore, PublicSheetError, download_public_sheet, iso_now  # noqa: E402
+from app.hosted_maps import HostedMapStore, PublicSheetError, download_public_workbook, iso_now  # noqa: E402
 from app.osm import get_road_lines  # noqa: E402
 
 
@@ -359,12 +359,30 @@ async def inspect_public_sheet(request: Request) -> JSONResponse:
     try:
         form = await request.form()
         sheet_url = str(form.get("sheet_url") or "").strip()
+        sheet_name = str(form.get("sheet_name") or "").strip() or None
         if not sheet_url:
             raise ValueError("Pega una URL pública de Google Sheets para detectar sus opciones.")
-        source_path, _ = download_public_sheet(sheet_url, store.source_cache)
-        inspection = inspect_dataset(file_path=str(source_path))
+        source_path, _ = download_public_workbook(sheet_url, store.source_cache)
+        workbook_inspection = inspect_dataset(file_path=str(source_path))
+        sheets = workbook_inspection.get("sheets", [])
+        inspection = inspect_dataset(file_path=str(source_path), sheet_name=sheet_name) if sheet_name else workbook_inspection
+        if not sheet_name and len(sheets) > 1:
+            return JSONResponse(
+                {
+                    "sheets": sheets,
+                    "requires_sheet_selection": True,
+                    "municipalities": [],
+                    "questions": [],
+                    "records": inspection.get("records", 0),
+                    "source_name": inspection.get("source_name"),
+                    "warnings": inspection.get("warnings", [])[:5],
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         return JSONResponse(
             {
+                "sheets": sheets,
+                "requires_sheet_selection": False,
                 "municipalities": inspection.get("municipalities", []),
                 "questions": _question_names(inspection),
                 "records": inspection.get("records", 0),
@@ -384,12 +402,13 @@ async def create_map(request: Request) -> JSONResponse:
         _require_durable_storage()
         form = await request.form()
         sheet_url = str(form.get("sheet_url") or "").strip()
+        sheet_name = str(form.get("sheet_name") or "").strip() or None
         municipality = str(form.get("municipality") or "").strip() or None
         question = str(form.get("question") or "").strip() or None
         upload = form.get("file")
 
         if sheet_url:
-            source_path, content_hash = download_public_sheet(sheet_url, store.source_cache)
+            source_path, content_hash = download_public_workbook(sheet_url, store.source_cache)
             source_type = "google_sheets"
             source_label = "Google Sheets público"
         elif isinstance(upload, UploadFile) and upload.filename:
@@ -417,7 +436,14 @@ async def create_map(request: Request) -> JSONResponse:
         else:
             raise ValueError("Pega una URL pública de Google Sheets o carga un Excel/CSV.")
 
-        inspection = inspect_dataset(file_path=str(source_path))
+        inspection = inspect_dataset(file_path=str(source_path), sheet_name=sheet_name)
+        if source_type == "google_sheets" and not sheet_name:
+            sheets = inspection.get("sheets", [])
+            if len(sheets) == 1:
+                sheet_name = sheets[0].get("name")
+                inspection = inspect_dataset(file_path=str(source_path), sheet_name=sheet_name)
+            elif len(sheets) > 1:
+                raise ValueError("Elige la hoja de Google Sheets que quieres representar.")
         municipalities = inspection.get("municipalities", [])
         questions = inspection.get("schema", {}).get("questions", [])
         if not municipality:
@@ -435,6 +461,7 @@ async def create_map(request: Request) -> JSONResponse:
             file_path=str(source_path),
             municipality=municipality,
             question=question,
+            sheet_name=sheet_name,
         )
         source = {
             "type": source_type,
@@ -446,6 +473,7 @@ async def create_map(request: Request) -> JSONResponse:
         if source_type == "google_sheets":
             source.update({
                 "url": sheet_url,
+                "sheet_name": sheet_name,
                 "content_hash": content_hash,
                 "checked_at": iso_now(),
                 "last_error": None,
@@ -462,6 +490,7 @@ async def create_map(request: Request) -> JSONResponse:
             "source_type": source_type,
             "municipality": result.get("municipality"),
             "question": result.get("question"),
+            "sheet_name": sheet_name,
         })
     except (PublicSheetError, ValueError) as error:
         return _error(str(error))
