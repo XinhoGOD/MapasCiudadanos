@@ -93,6 +93,7 @@ def _public_page(envelope: dict[str, Any], request: Request) -> str:
     if marker not in template:
         raise RuntimeError("No encontré el punto de integración de la interfaz del mapa.")
     map_id = str(envelope["map_id"])
+    information_url = f"{_base_url(request)}/informacion"
     version_url = f"{_base_url(request)}/api/maps/{map_id}/version"
     terrain_url = f"{_base_url(request)}/maps/{map_id}/terrain.jpg"
     osm_roads_url = f"{_base_url(request)}/api/maps/{map_id}/osm-roads"
@@ -107,6 +108,7 @@ def _public_page(envelope: dict[str, Any], request: Request) -> str:
         "publicMapId": map_id,
         "publicMapVersion": envelope["version"],
         "publicMapVersionUrl": version_url,
+        "publicInformationUrl": information_url,
         "publicMapTerrainUrl": terrain_url,
         "publicMapOsmRoadsUrl": osm_roads_url,
         "publicMapPollMs": 30000,
@@ -376,6 +378,13 @@ async def home(_: Request) -> HTMLResponse:
     return HTMLResponse((ROOT / "ui" / "hosted.html").read_text(encoding="utf-8"))
 
 
+async def information(_: Request) -> HTMLResponse:
+    return HTMLResponse(
+        (ROOT / "ui" / "informacion.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 async def inspect_public_sheet(request: Request) -> JSONResponse:
     try:
         form = await request.form()
@@ -500,7 +509,6 @@ async def create_map(request: Request) -> JSONResponse:
                 "last_error": None,
             })
         envelope = store.create(result, source)
-        _ensure_terrain(envelope)
         map_reference = _map_reference(str(envelope["map_id"]), result.get("municipality"))
         map_url = f"{_base_url(request)}/maps/{map_reference}"
         preview_url = f"{_base_url(request)}/maps/{map_reference}/preview.svg"
@@ -523,7 +531,6 @@ async def create_map(request: Request) -> JSONResponse:
 async def public_map(request: Request) -> HTMLResponse | JSONResponse:
     try:
         envelope = store.refresh_if_due(_resolve_map_id(request.path_params["map_id"]))
-        _ensure_terrain(envelope)
         return HTMLResponse(_public_page(envelope, request), headers={"Cache-Control": "no-store"})
     except FileNotFoundError:
         return _error("No encontré ese mapa público.", 404)
@@ -608,6 +615,7 @@ async def osm_roads(request: Request) -> JSONResponse:
 
 routes = [
     Route("/", home, methods=["GET"]),
+    Route("/informacion", information, methods=["GET"]),
     Route("/api/sheets/inspect", inspect_public_sheet, methods=["POST"]),
     Route("/api/maps", create_map, methods=["POST"]),
     Route("/api/maps/{map_id}/version", map_version, methods=["GET"]),

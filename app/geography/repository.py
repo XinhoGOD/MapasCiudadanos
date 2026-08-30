@@ -46,6 +46,16 @@ class GeographyRepository:
         self.official_localities = self._load_official_localities(official_localities_path)
         self.official_municipalities = self._load_official_municipalities(official_municipalities_path)
         self._geometry_cache: dict[str, tuple[list[GeographyRecord], dict[str, Any] | None]] = {}
+        self._municipality_codes: dict[str, str] = {}
+        self._records_by_code: dict[str, list[GeographyRecord]] = {}
+        self._resolve_cache: dict[tuple[str, str], GeographyMatch] = {}
+        self._point_resolve_cache: dict[tuple[str, str], GeographyMatch] = {}
+        for record in self.records:
+            if not record.municipality_code:
+                continue
+            self._records_by_code.setdefault(record.municipality_code, []).append(record)
+            if record.municipality:
+                self._municipality_codes.setdefault(normalize_text(record.municipality), record.municipality_code)
 
     def _load_official_localities(self, path: Path) -> dict[str, list[GeographyRecord]]:
         if not path.exists():
@@ -177,8 +187,7 @@ class GeographyRepository:
     def _municipality_code(self, municipality: str | None) -> str | None:
         if not municipality:
             return None
-        exact = [record.municipality_code for record in self.records if record.municipality_code and normalize_text(record.municipality) == normalize_text(municipality)]
-        return exact[0] if exact else None
+        return self._municipality_codes.get(normalize_text(municipality))
 
     def _load_geometry(self, municipality: str | None) -> tuple[list[GeographyRecord], dict[str, Any] | None]:
         code = self._municipality_code(municipality)
@@ -355,8 +364,23 @@ class GeographyRepository:
         Point matches are diagnostic only. They are never converted into an area
         because a point is not a valid choropleth boundary.
         """
+        cache_key = (normalize_text(municipality), normalize_geography_name(locality))
+        if cache_key in self._point_resolve_cache:
+            return self._point_resolve_cache[cache_key]
+        match = self._resolve_point_uncached(locality, municipality)
+        self._point_resolve_cache[cache_key] = match
+        return match
+
+    def _resolve_point_uncached(self, locality: str, municipality: str | None = None) -> GeographyMatch:
         code = self._municipality_code(municipality)
-        pool = [record for record in self.records if (not code or record.municipality_code == code or normalize_text(record.municipality) == normalize_text(municipality))]
+        if code:
+            pool = list(self._records_by_code.get(code, []))
+        else:
+            pool = [
+                record
+                for record in self.records
+                if not municipality or normalize_text(record.municipality) == normalize_text(municipality)
+            ]
         pool = [record for record in pool if record.longitude is not None and record.latitude is not None]
         if not pool:
             return GeographyMatch(locality, None, "UNMATCHED", 0.0, warning="No hay puntos oficiales cargados para el municipio solicitado.")
@@ -443,6 +467,14 @@ class GeographyRepository:
         return [(score, record, margin if index == 0 else score - best_score) for index, (score, record) in enumerate(ranked)]
 
     def resolve(self, locality: str, municipality: str | None = None) -> GeographyMatch:
+        cache_key = (normalize_text(municipality), normalize_geography_name(locality))
+        if cache_key in self._resolve_cache:
+            return self._resolve_cache[cache_key]
+        match = self._resolve_uncached(locality, municipality)
+        self._resolve_cache[cache_key] = match
+        return match
+
+    def _resolve_uncached(self, locality: str, municipality: str | None = None) -> GeographyMatch:
         pool = self._geometry_records(municipality)
         if not pool:
             return GeographyMatch(locality, None, "UNMATCHED", 0.0, warning="No hay polígonos oficiales cargados para el municipio solicitado.")

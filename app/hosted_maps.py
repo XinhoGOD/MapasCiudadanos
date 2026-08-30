@@ -165,6 +165,11 @@ class HostedMapStore:
             refresh_value = 60
         self.refresh_seconds = max(15, refresh_value)
         self._lock = threading.Lock()
+        # Vercel instances can serve many version checks during the same warm
+        # process.  Keep the probe timestamp in memory so an unchanged sheet
+        # does not cause a Blob write every 30–60 seconds.  The persisted
+        # timestamp still protects cold starts when it is available.
+        self._last_refresh_probe: dict[str, datetime] = {}
 
     @property
     def uses_persistent_storage(self) -> bool:
@@ -258,20 +263,32 @@ class HostedMapStore:
         source = envelope.get("source", {})
         if source.get("type") != "google_sheets":
             return envelope
+        now = utc_now()
         checked_at = _parse_iso(source.get("checked_at"))
-        if checked_at and utc_now() - checked_at < timedelta(seconds=self.refresh_seconds):
+        last_probe = self._last_refresh_probe.get(map_id)
+        latest_probe = max((value for value in (checked_at, last_probe) if value), default=None)
+        if latest_probe and now - latest_probe < timedelta(seconds=self.refresh_seconds):
             return envelope
 
         with self._lock:
             envelope = self.get(map_id)
             source = envelope.get("source", {})
+            now = utc_now()
             checked_at = _parse_iso(source.get("checked_at"))
-            if checked_at and utc_now() - checked_at < timedelta(seconds=self.refresh_seconds):
+            last_probe = self._last_refresh_probe.get(map_id)
+            latest_probe = max((value for value in (checked_at, last_probe) if value), default=None)
+            if latest_probe and now - latest_probe < timedelta(seconds=self.refresh_seconds):
                 return envelope
-            source["checked_at"] = iso_now()
+
+            # Mark the probe before the network call.  If two requests arrive
+            # together on one warm instance, only one of them downloads Sheets.
+            self._last_refresh_probe[map_id] = now
+            previous_hash = source.get("content_hash")
+            previous_error = source.get("last_error")
+            should_write = False
             try:
                 sheet_path, content_hash = download_public_workbook(source["url"], self.source_cache)
-                if content_hash != source.get("content_hash"):
+                if content_hash != previous_hash:
                     result = generate_dominant_answer_map(
                         file_path=str(sheet_path),
                         municipality=source.get("municipality") or None,
@@ -283,10 +300,19 @@ class HostedMapStore:
                     envelope["updated_at"] = iso_now()
                     source["content_hash"] = content_hash
                     source["last_error"] = None
+                    source["checked_at"] = iso_now()
+                    should_write = True
                 else:
                     source["last_error"] = None
             except Exception as error:  # keep the last known good map available
                 source["last_error"] = str(error)
-            envelope["source"] = source
-            self._write(envelope)
+            # An unchanged sheet is the normal case.  Keep the last known map
+            # in Blob and avoid rewriting its JSON just to update a heartbeat.
+            # Errors are persisted only when their visible state changes.
+            if source.get("last_error") != previous_error:
+                source["checked_at"] = iso_now()
+                should_write = True
+            if should_write:
+                envelope["source"] = source
+                self._write(envelope)
         return envelope

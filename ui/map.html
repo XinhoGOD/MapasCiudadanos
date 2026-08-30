@@ -460,10 +460,14 @@
   function institutionalHeader() {
     const actionHref = result?.map_type ? '#map-result' : '#carga';
     const actionLabel = result?.map_type ? 'Ver resultado' : 'Comenzar';
+    const informationHref = host?.publicInformationUrl || '/informacion';
+    const navigation = result?.map_type
+      ? `<nav class="site-nav" aria-label="Navegación institucional"><a href="${esc(informationHref)}">Información</a></nav>`
+      : '';
     return `<header class="site-header">
       <div class="site-header__inner">
         <a class="site-brand" href="#inicio" aria-label="Ir al inicio"><img class="site-logo" src="${institutionLogo}" alt="Hidalgo Primero el Pueblo. Planeación, Unidad de Planeación y Prospectiva"></a>
-        <nav class="site-nav" aria-label="Navegación institucional"><a href="#carga">Carga de datos</a><a href="#alcance">Alcance</a><a href="#footer">Información</a></nav>
+        ${navigation}
         <div class="site-header__actions"><div class="site-office"><div class="site-office__name">Dirección de Participación Ciudadana</div><div class="site-office__system">Sistema de análisis territorial</div></div><a class="site-access" href="${actionHref}">${actionLabel}</a></div>
       </div>
     </header>`;
@@ -1083,9 +1087,6 @@
       ? influenceSites.map((site, index) => ({value: `site-${index}`, label: site.locality}))
       : baseFeatures.map((feature, index) => ({value: `official-${feature.properties?.official_key || index}`, label: feature.properties?.locality || 'Unidad sin nombre'}));
     const focusOptions = focusItems.sort((a, b) => String(a.label).localeCompare(String(b.label), 'es')).map(item => `<option value="${esc(item.value)}">${esc(item.label)}</option>`).join('');
-    const policy = isInfluence
-      ? 'zonas de vecino más cercano (Voronoi) recortadas al límite municipal oficial; sus divisiones son analíticas'
-      : 'sólo polígonos oficiales de localidad/asentamiento publicados por INEGI';
     const rankingTitle = data.map_type === 'composition' ? 'Volumen y distribución por localidad' : data.map_type === 'dominant' ? 'Volumen y respuesta predominante por localidad' : `${percentageMode ? 'Porcentaje local' : 'Frecuencia'} de “${esc(data.answer)}”`;
     const displayTitle = data.question || data.title || 'Mapa coroplético municipal';
     const resultContext = data.map_type === 'composition'
@@ -1106,7 +1107,7 @@
         ? drawDataFeatures[selectedTerritory.index]?.properties || null
         : null;
     const selectedPanel = territoryPanelHtml(selectedProperties, data);
-    const warnings = (data.warnings || []).slice(0, 6);
+    const warnings = (data.warnings || []).filter(warning => !/cartografía oficial de localidades no forma|cobertura completa reparte el municipio/i.test(String(warning))).slice(0, 6);
 
     root.innerHTML = `<div class="app-shell">
       ${institutionalHeader()}
@@ -1118,7 +1119,7 @@
         ${publicMap ? '' : uploadPanel(true)}
         <section class="map-frame${mapFullscreen ? ' is-fullscreen' : ''}" id="map-result">
           <div class="map-toolbar">
-            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
+            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">↺ Restablecer vista</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
             <select id="coverage-mode" aria-label="Elegir tipo de cobertura"><option value="official" ${!isInfluence ? 'selected' : ''}>Sólo límites oficiales</option><option value="influence" ${isInfluence ? 'selected' : ''}>Cobertura completa · influencia analítica</option></select>
             <select id="territory-focus" aria-label="Enfocar una localidad o colonia"><option value="">Enfocar localidad o colonia…</option>${focusOptions}</select>
             <span class="source">INEGI · Marco Geoestadístico y DCAH · Hidalgo · líneas OSM</span>
@@ -1133,7 +1134,7 @@
         </section>
         <section class="below">
           <div class="panel"><h2>${rankingTitle}</h2><div class="ranking">${rows}</div></div>
-          <div class="panel"><h2>Ficha y cobertura</h2><div class="context"><strong>Pregunta:</strong> ${esc(data.question || 'No especificada')}<br><strong>Clasificación:</strong> ${data.map_type === 'dominant' ? 'respuesta predominante por localidad/colonia' : esc(data.answer || 'Todas las respuestas')}<br><strong>Medida:</strong> ${data.map_type === 'composition' ? 'porcentaje de cada respuesta dentro de la localidad' : data.map_type === 'dominant' ? 'frecuencia absoluta de la respuesta predominante, con su porcentaje local' : percentageMode ? 'porcentaje dentro de cada localidad' : 'frecuencia absoluta por localidad'}.<br><strong>Agrupación:</strong> ${data.map_type === 'composition' ? 'cada polígono conserva todas las respuestas; el ancho de cada franja representa su porcentaje local.' : data.map_type === 'dominant' ? 'se comparan todas las respuestas válidas de cada localidad y se conserva la categoría con mayor frecuencia.' : 'se cuenta cuántas filas de cada localidad/colonia eligieron exactamente la respuesta seleccionada.'}<br><strong>Cobertura de registros:</strong> ${number(representedRecords)} de ${number(metrics.total_response_records)} (${percent(coverage)}%).<br><strong>Política geométrica:</strong> ${policy}.<br><strong>Importante:</strong> no se inventan respuestas ni se redistribuyen conteos entre localidades.</div>${diagnostics}${warnings.map(warning => `<div class="warning">${esc(warning)}</div>`).join('')}</div>
+          <div class="panel"><h2>Ficha y cobertura</h2><div class="context"><strong>Pregunta:</strong> ${esc(data.question || 'No especificada')}<br><strong>Clasificación:</strong> ${data.map_type === 'dominant' ? 'respuesta predominante por localidad/colonia' : esc(data.answer || 'Todas las respuestas')}<br><strong>Medida:</strong> ${data.map_type === 'composition' ? 'porcentaje de cada respuesta dentro de la localidad' : data.map_type === 'dominant' ? 'frecuencia absoluta de la respuesta predominante, con su porcentaje local' : percentageMode ? 'porcentaje dentro de cada localidad' : 'frecuencia absoluta por localidad'}.<br><strong>Agrupación:</strong> ${data.map_type === 'composition' ? 'cada polígono conserva todas las respuestas; el ancho de cada franja representa su porcentaje local.' : data.map_type === 'dominant' ? 'se comparan todas las respuestas válidas de cada localidad y se conserva la categoría con mayor frecuencia.' : 'se cuenta cuántas filas de cada localidad/colonia eligieron exactamente la respuesta seleccionada.'}<br><strong>Cobertura de registros:</strong> ${number(representedRecords)} de ${number(metrics.total_response_records)} (${percent(coverage)}%).<br><strong>Importante:</strong> no se inventan respuestas ni se redistribuyen conteos entre localidades.</div>${diagnostics}${warnings.map(warning => `<div class="warning">${esc(warning)}</div>`).join('')}</div>
         </section>
         ${institutionalFooter()}
       </main>
@@ -1152,7 +1153,7 @@
     if (closePanel) closePanel.onclick = () => { selectedTerritory = null; render(); };
     root.querySelectorAll('[data-action="zoom-in"]').forEach(button => button.onclick = () => { zoom = Math.min(12, zoom + .5); layer.style.transform = `scale(${zoom})`; });
     root.querySelectorAll('[data-action="zoom-out"]').forEach(button => button.onclick = () => { zoom = Math.max(.7, zoom - .5); layer.style.transform = `scale(${zoom})`; });
-    root.querySelectorAll('[data-action="reset"]').forEach(button => button.onclick = () => { zoom = 1; layer.style.transformOrigin = '50% 50%'; layer.style.transform = 'scale(1)'; if (focusSelect) focusSelect.value = ''; });
+    root.querySelectorAll('[data-action="reset"]').forEach(button => button.onclick = () => { zoom = 1; selectedTerritory = null; layer.style.transformOrigin = '50% 50%'; layer.style.transform = 'scale(1)'; if (focusSelect) focusSelect.value = ''; render(); });
     const coverageSelect = root.querySelector('#coverage-mode');
     if (coverageSelect) coverageSelect.onchange = event => { coverageMode = event.target.value; zoom = 1; render(); };
     const osmToggle = root.querySelector('[data-action="toggle-osm"]');

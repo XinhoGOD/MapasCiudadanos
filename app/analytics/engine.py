@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from functools import lru_cache
 from typing import Any
 
 import pandas as pd
@@ -15,6 +16,12 @@ from app.survey.semantics import choose_column, question_options
 ACCEPTED_POLYGON_LEVELS = {"EXACT", "NORMALIZED_EXACT", "ALIAS", "FUZZY_HIGH"}
 EXACT_POINT_LEVELS = {"POINT_EXACT", "POINT_ALIAS"}
 MISSING_LOCALITY = "(Sin localidad declarada)"
+
+
+@lru_cache(maxsize=8)
+def _geography_repository(catalog_path: str | None) -> GeographyRepository:
+    """Reuse the parsed Hidalgo catalogue on warm server instances."""
+    return GeographyRepository(catalog_path)
 
 
 def _single_frame(dataset):
@@ -136,7 +143,7 @@ def resolve_geography(
     if chosen_question:
         frame = frame[frame[chosen_question].map(lambda value: bool(_response_items(value)))].copy()
 
-    repo = GeographyRepository(catalog_path)
+    repo = _geography_repository(catalog_path)
     matches: list[dict[str, Any]] = []
     for locality, group in frame.groupby(locality_column, dropna=False):
         records = int(len(group))
@@ -610,7 +617,7 @@ def generate_frequency_map(
         chosen_question,
         answer,
         stats,
-        GeographyRepository(catalog_path),
+        _geography_repository(catalog_path),
         "frequency",
         list(dataset.warnings),
     )
@@ -642,7 +649,7 @@ def generate_composition_map(
         chosen_question,
         "Todas las respuestas",
         stats,
-        GeographyRepository(catalog_path),
+        _geography_repository(catalog_path),
         "total_participations",
         list(dataset.warnings),
     )
@@ -698,7 +705,7 @@ def generate_dominant_answer_map(
             "percentage_locality": round(count / valid_rows * 100, 1),
             "answer_counts": dict(counter),
         }
-    repo = GeographyRepository(catalog_path)
+    repo = _geography_repository(catalog_path)
     result = _result(
         "dominant",
         "Respuesta predominante por localidad",
@@ -749,7 +756,7 @@ def generate_participation_map(
         chosen_question,
         "Todas las respuestas",
         stats,
-        GeographyRepository(catalog_path),
+        _geography_repository(catalog_path),
         "frequency",
         list(dataset.warnings),
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -150,12 +151,34 @@ def _read_csv(path: Path) -> tuple[dict[str, pd.DataFrame], list[str]]:
     raise ValueError("No pude leer la codificación del CSV.")
 
 
+def _read_source(path: Path) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    if path.suffix.lower() == ".csv":
+        return _read_csv(path)
+    return _read_excel(path)
+
+
+@lru_cache(maxsize=8)
+def _read_source_cached(path_name: str, modified_ns: int, size: int) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    """Reuse one parsed workbook while the downloaded file is unchanged.
+
+    Hosted-map creation first inspects a workbook and then generates the map
+    from that same workbook.  The old path parsed every sheet twice (including
+    formula inspection), which was especially noticeable with large public
+    Sheets exports.  The file fingerprint keeps this cache safe when a source
+    is refreshed in place.
+    """
+    del modified_ns, size  # They are part of the cache key, not read inputs.
+    return _read_source(Path(path_name))
+
+
 def load_dataset(file_path: str | None = None, file: Any = None, sheet_name: str | None = None) -> SurveyDataset:
     path = resolve_file_input(file_path, file)
-    if path.suffix.lower() == ".csv":
-        frames, warnings = _read_csv(path)
+    cacheable_input = file_path is not None or isinstance(file, (str, dict))
+    if cacheable_input:
+        stat = path.stat()
+        frames, warnings = _read_source_cached(str(path), stat.st_mtime_ns, stat.st_size)
     else:
-        frames, warnings = _read_excel(path)
+        frames, warnings = _read_source(path)
     if not frames:
         raise ValueError("No encontré hojas con registros utilizables en el archivo.")
     if sheet_name:
@@ -163,4 +186,4 @@ def load_dataset(file_path: str | None = None, file: Any = None, sheet_name: str
             available = ", ".join(frames)
             raise ValueError(f"No encontré la hoja '{sheet_name}'. Hojas disponibles: {available}.")
         frames = {sheet_name: frames[sheet_name]}
-    return SurveyDataset(path.name, list(frames), frames, warnings)
+    return SurveyDataset(path.name, list(frames), frames, list(warnings))

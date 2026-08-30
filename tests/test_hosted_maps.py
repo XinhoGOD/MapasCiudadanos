@@ -108,3 +108,49 @@ def test_public_page_bootstraps_map_without_public_upload_controls(tmp_path: Pat
     assert '"publicMap":true' in page
     assert '"map_type":"composition"' in page
     assert 'publicMapVersionUrl' in page
+    assert 'publicInformationUrl' in page
+    assert 'Información' in page
+    assert 'Carga de datos' not in page
+    assert 'href="#alcance"' not in page
+
+
+def test_home_navigation_is_minimal_and_accesses_planeacion_portal():
+    home = Path("ui/hosted.html").read_text(encoding="utf-8")
+    information = Path("ui/informacion.html").read_text(encoding="utf-8")
+
+    assert "Transparencia" not in home
+    assert "Servicios" not in home
+    assert "Contacto" not in home
+    assert 'href="https://u-planeacion.hidalgo.gob.mx/"' in home
+    assert "Cómo interpretar el mapa territorial" in information
+    assert "No debe concluirse" in information
+
+
+def test_refresh_does_not_rewrite_unchanged_google_sheet(tmp_path: Path, monkeypatch):
+    source_file = tmp_path / "source.xlsx"
+    source_file.write_bytes(b"cached workbook")
+    store = HostedMapStore(tmp_path / "store", refresh_seconds=15)
+    envelope = store.create(
+        {"map_type": "dominant", "version_marker": "original"},
+        {
+            "type": "google_sheets",
+            "url": "https://docs.google.com/spreadsheets/d/test/edit",
+            "sheet_name": "Respuestas",
+            "municipality": "Pacula",
+            "question": "Pregunta",
+            "content_hash": "same-hash",
+            "checked_at": "2020-01-01T00:00:00+00:00",
+            "last_error": None,
+        },
+    )
+    writes: list[dict] = []
+    monkeypatch.setattr(store, "_write", lambda value: writes.append(value))
+    monkeypatch.setattr(
+        "app.hosted_maps.download_public_workbook",
+        lambda _url, _cache: (source_file, "same-hash"),
+    )
+
+    refreshed = store.refresh_if_due(envelope["map_id"])
+
+    assert refreshed["version"] == envelope["version"]
+    assert writes == []
