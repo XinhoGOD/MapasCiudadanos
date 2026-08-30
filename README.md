@@ -103,7 +103,7 @@ El primer flujo recomendado es: `inspect_survey_file` → `get_question_options`
 
 ## Mapas públicos desde Google Sheets o Excel
 
-Esta copia agrega un flujo web independiente del inspector MCP. Permite pegar el enlace de una hoja pública de Google Sheets o cargar un `.xlsx`, `.xls` o `.csv`; el backend genera un mapa de respuesta predominante con la cartografía de Hidalgo ya incluida y devuelve un enlace `/maps/<id>`.
+Esta copia agrega un flujo web independiente del inspector MCP. Permite pegar el enlace de una hoja pública de Google Sheets o cargar un `.xlsx`, `.xls` o `.csv`; el backend genera un mapa de respuesta predominante con la cartografía de Hidalgo ya incluida y devuelve un enlace legible `/maps/<identificador>-<municipio>`. Los enlaces anteriores con sólo `/maps/<identificador>` siguen funcionando.
 
 ```powershell
 py -3.13 scripts/hosted_map_server.py --host 127.0.0.1 --port 8770

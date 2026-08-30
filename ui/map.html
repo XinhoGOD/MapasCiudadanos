@@ -221,6 +221,10 @@
   .map-toolbar select { min-height: 34px; max-width: 285px; padding: 6px 30px 6px 8px; color: var(--pc-verde); background: #fff; border: 1px solid #b9afa5; border-radius: 2px; font-size: 10px; }
   .source { margin-left: auto; color: var(--pc-muted); font-size: 10px; }
   .map-wrap { height: 620px; background: #edf1ef; }
+  .map-float-card { position: absolute; top: 16px; left: 16px; z-index: 4; min-width: 190px; max-width: 280px; padding: 11px 13px; color: var(--pc-ink); background: rgba(255,255,255,.95); border: 1px solid var(--pc-line); border-left: 4px solid var(--pc-tinto); box-shadow: 0 8px 22px rgba(35,31,28,.11); pointer-events: none; }
+  .map-float-card strong { display: block; color: var(--pc-guinda-deep); font-size: 13px; font-weight: 700; line-height: 1.2; }
+  .map-float-card span { display: block; margin-top: 4px; color: var(--pc-muted); font-size: 10px; line-height: 1.35; }
+  .map-float-card span + span { margin-top: 1px; }
   .municipal-fill { fill-opacity: .27; }
   .osm-roads path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
   .osm-roads .osm-road-halo { stroke: rgba(255,255,255,.92); opacity: .82; }
@@ -232,10 +236,21 @@
   .map-frame.is-fullscreen .map-toolbar [data-action="fullscreen"]:hover { background: var(--pc-guinda-deep); }
   .map-frame.is-fullscreen .map-wrap { flex: 1; height: auto; min-height: 0; background: #edf1ef; }
   .map-frame.is-fullscreen .map-key { max-width: min(360px, calc(100vw - 32px)); left: 16px; bottom: 16px; }
+  .map-frame.is-fullscreen .map-float-card { top: 18px; left: 18px; }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-osm"],
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-callouts"] { display: inline-flex; align-items: center; pointer-events: auto; color: #fff; background: var(--pc-verde); border-color: var(--pc-verde); box-shadow: 0 3px 14px rgba(38,28,27,.22); }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-osm"][aria-pressed="false"],
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-callouts"][aria-pressed="false"] { color: var(--pc-verde); background: #fff; }
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-osm"]:hover,
+  .map-frame.is-fullscreen .map-toolbar [data-action="toggle-callouts"]:hover { color: #fff; background: var(--pc-tinto); border-color: var(--pc-tinto); }
   .map-fullscreen-open { overflow: hidden; }
   .osm-attribution { color: var(--pc-muted); background: rgba(255,255,255,.88); border-color: var(--pc-line); }
   .osm-attribution a { color: var(--pc-verde); }
   .territory-label { font-size: 1.7px; }
+  .territory-callout-line { fill: none; stroke: rgba(97,18,50,.72); stroke-width: .28; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .territory-callout-dot { stroke: #fff; stroke-width: .45; vector-effect: non-scaling-stroke; }
+  .territory-callout-label { fill: var(--pc-guinda-deep); font-family: "Montserrat", "Segoe UI", Arial, sans-serif; font-size: 1.45px; font-weight: 700; paint-order: stroke; stroke: rgba(255,255,255,.98); stroke-width: .62px; stroke-linejoin: round; pointer-events: none; }
+  .map-frame.is-fullscreen .territory-label { display: none !important; }
   .municipal-boundary { stroke: var(--pc-guinda); }
   .official-base { stroke: var(--pc-verde); }
   .official-data.settlement { stroke: var(--pc-verde); }
@@ -363,6 +378,14 @@
   .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"] { display: inline-flex; align-items: center; pointer-events: auto; color: #fff; background: var(--pc-verde); border-color: var(--pc-verde); box-shadow: 0 3px 14px rgba(38,28,27,.22); }
   .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"][aria-pressed="false"] { background: #fff; color: var(--pc-verde); }
   .map-frame.is-fullscreen .map-toolbar [data-action="toggle-labels"]:hover { background: var(--pc-tinto); color: #fff; }
+  @media (max-width: 720px) {
+    .map-float-card { top: 10px; left: 10px; min-width: 160px; max-width: calc(100% - 20px); padding: 9px 10px; }
+    .map-frame.is-fullscreen .map-float-card { top: 12px; left: 12px; }
+  }
+  @media (max-width: 420px) {
+    .map-float-card { max-width: 190px; }
+    .territory-callout-label { font-size: 1.25px; }
+  }
   @media (max-width: 1080px) {
     .site-nav { gap: 14px; }
     .site-header__actions { gap: 10px; margin-left: 12px; }
@@ -403,6 +426,7 @@
   let osmRoadsLoading = false;
   let mapFullscreen = false;
   let labelsEnabled = false;
+  let calloutsEnabled = true;
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -694,6 +718,57 @@
     if (!coordinates.length) return null;
     const average = coordinates.reduce((point, coordinate) => [point[0] + coordinate[0], point[1] + coordinate[1]], [0, 0]);
     return projection([average[0] / coordinates.length, average[1] / coordinates.length]);
+  }
+
+  function layoutCallouts(items) {
+    const groups = {left: [], right: []};
+    items.filter(item => item.point?.every(Number.isFinite)).forEach(item => {
+      const side = item.point[0] < 50 ? 'left' : 'right';
+      groups[side].push({...item, side});
+    });
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => a.point[1] - b.point[1]);
+      if (!group.length) return;
+      const minY = 6;
+      const maxY = 94;
+      const spacing = group.length > 1 ? Math.max(1.8, Math.min(4.4, (maxY - minY) / (group.length - 1))) : 0;
+      const positions = group.map(item => Math.max(minY, Math.min(maxY, item.point[1])));
+      positions.forEach((position, index) => {
+        group[index].labelY = index ? Math.max(position, positions[index - 1] + spacing) : position;
+      });
+      const overflow = group[group.length - 1].labelY - maxY;
+      if (overflow > 0) group.forEach(item => { item.labelY -= overflow; });
+      group.forEach(item => { item.labelY = Math.max(minY, Math.min(maxY, item.labelY)); });
+    });
+    return [...groups.left, ...groups.right];
+  }
+
+  function calloutColor(properties, data) {
+    const categories = data.response_categories || [];
+    if (properties.dominant_answer) return categoryColor(properties.dominant_answer, categories);
+    const counts = properties.answer_counts || {};
+    const topAnswer = Object.entries(counts).sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))[0]?.[0];
+    return topAnswer ? categoryColor(topAnswer, categories) : '#235b4e';
+  }
+
+  function mapCallouts(items, data) {
+    if (!calloutsEnabled || !items.length) return '';
+    const positioned = layoutCallouts(items);
+    const labels = positioned.map(item => {
+      const [x, y] = item.point;
+      const left = item.side === 'left';
+      const elbowX = left ? 7 : 93;
+      const edgeX = left ? 3.5 : 96.5;
+      const textX = left ? 2 : 98;
+      const anchor = left ? 'start' : 'end';
+      const label = esc(item.properties?.locality || 'Localidad');
+      const detail = item.properties?.dominant_answer
+        ? `Respuesta predominante: ${item.properties.dominant_answer}`
+        : `${Number(item.properties?.total_participations || 0).toLocaleString('es-MX')} respuestas`;
+      const color = calloutColor(item.properties || {}, data);
+      return `<g class="territory-callout"><path class="territory-callout-line" d="M${x.toFixed(2)},${y.toFixed(2)} L${elbowX},${item.labelY.toFixed(2)} L${edgeX},${item.labelY.toFixed(2)}"></path><circle class="territory-callout-dot" cx="${x}" cy="${y}" r=".82" fill="${color}"><title>${label} · ${esc(detail)}</title></circle><text class="territory-callout-label" x="${textX}" y="${(item.labelY + .48).toFixed(2)}" text-anchor="${anchor}">${label}</text></g>`;
+    }).join('');
+    return labels ? `<g class="map-callouts" aria-label="Etiquetas externas de localidades y colonias">${labels}</g>` : '';
   }
 
   function terrainImageUrl(features) {
@@ -993,6 +1068,10 @@
         ? cells.map(cell => `<circle class="site-marker" cx="${cell.point[0]}" cy="${cell.point[1]}" r=".42"><title>${esc(cell.site.locality)}</title></circle>`).join('')
         : '';
     const markers = officialMarkers + influenceMarkers;
+    const calloutItems = coverageMode === 'influence'
+      ? cells.map(cell => ({point: cell.point, properties: cell.site || {}}))
+      : drawDataFeatures.map(feature => ({point: centroidFor(feature.geometry, projection), properties: feature.properties || {}}));
+    const callouts = mapFullscreen ? mapCallouts(calloutItems, data) : '';
 
     const rankingSource = coverageMode === 'influence'
       ? influenceSites.map(site => ({...site}))
@@ -1056,12 +1135,12 @@
         <div class="notice">${notice}</div>
         <section class="map-frame${mapFullscreen ? ' is-fullscreen' : ''}${labelsEnabled ? ' show-labels' : ''}" id="map-result">
           <div class="map-toolbar">
-            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="toggle-labels" aria-pressed="${labelsEnabled ? 'true' : 'false'}">${labelsEnabled ? 'Ocultar nombres' : 'Mostrar nombres'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
+            <button type="button" data-action="zoom-in">Acercar</button><button type="button" data-action="zoom-out">Alejar</button><button type="button" data-action="reset">Restablecer</button><button type="button" data-action="toggle-osm" aria-pressed="${osmEnabled ? 'true' : 'false'}">${osmEnabled ? 'Ocultar líneas OSM' : 'Mostrar líneas OSM'}</button><button type="button" data-action="toggle-labels" aria-pressed="${labelsEnabled ? 'true' : 'false'}">${labelsEnabled ? 'Ocultar nombres' : 'Mostrar nombres'}</button><button type="button" data-action="toggle-callouts" aria-pressed="${calloutsEnabled ? 'true' : 'false'}">${calloutsEnabled ? 'Ocultar etiquetas externas' : 'Mostrar etiquetas externas'}</button><button type="button" data-action="fullscreen" aria-pressed="${mapFullscreen ? 'true' : 'false'}">${mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
             <select id="coverage-mode" aria-label="Elegir tipo de cobertura"><option value="official" ${!isInfluence ? 'selected' : ''}>Sólo límites oficiales</option><option value="influence" ${isInfluence ? 'selected' : ''}>Cobertura completa · influencia analítica</option></select>
             <select id="territory-focus" aria-label="Enfocar una localidad o colonia"><option value="">Enfocar localidad o colonia…</option>${focusOptions}</select>
             <span class="source">INEGI · Marco Geoestadístico y DCAH · Hidalgo · líneas OSM</span>
           </div>
-          <div class="map-wrap"><svg class="map-svg" viewBox="0 0 100 100" role="img" aria-label="Mapa del municipio de ${esc(data.municipality)}"><title>${esc(displayTitle)}</title><desc>${isInfluence ? 'Cobertura municipal completa por influencia geográfica de localidades con datos.' : 'Coropleta con polígonos oficiales de localidades y asentamientos.'}</desc><defs><clipPath id="municipality-clip">${clipPaths}</clipPath>${gradientDefinitions}</defs><g class="map-layer"><rect x="0" y="0" width="100" height="100" fill="#edf2ef" fill-opacity="0"></rect>${municipalFillPaths}<g clip-path="url(#municipality-clip)">${influencePaths}</g>${basePaths}${dataPaths}${osmContext}${officialOutlines}${markers}${municipalOutlinePaths}</g></svg><div class="osm-attribution">Líneas viales: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div><div class="map-key">${mapLegend(data)}</div><div id="tip" class="tooltip" hidden></div></div>
+          <div class="map-wrap"><svg class="map-svg" viewBox="0 0 100 100" role="img" aria-label="Mapa del municipio de ${esc(data.municipality)}"><title>${esc(displayTitle)}</title><desc>${isInfluence ? 'Cobertura municipal completa por influencia geográfica de localidades con datos.' : 'Coropleta con polígonos oficiales de localidades y asentamientos.'}</desc><defs><clipPath id="municipality-clip">${clipPaths}</clipPath>${gradientDefinitions}</defs><g class="map-layer"><rect x="0" y="0" width="100" height="100" fill="#edf2ef" fill-opacity="0"></rect>${municipalFillPaths}<g clip-path="url(#municipality-clip)">${influencePaths}</g>${basePaths}${dataPaths}${osmContext}${officialOutlines}${markers}${municipalOutlinePaths}${callouts}</g></svg><div class="map-float-card" aria-label="Resumen territorial"><strong>${esc(data.municipality || 'Municipio')}</strong><span>${esc(coverageMetricLabel)}: ${esc(coverageMetric)}</span><span>${number(metrics.mentions)} ${esc(mentionLabel.toLowerCase())}</span></div><div class="osm-attribution">Líneas viales: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></div><div class="map-key">${mapLegend(data)}</div><div id="tip" class="tooltip" hidden></div></div>
         </section>
         <section class="metrics">
           <div class="metric"><div class="metric-value">${number(metrics.mentions)}</div><div class="metric-label">${mentionLabel}</div></div>
@@ -1090,6 +1169,8 @@
     if (osmToggle) osmToggle.onclick = () => { osmEnabled = !osmEnabled; render(); };
     const labelsToggle = root.querySelector('[data-action="toggle-labels"]');
     if (labelsToggle) labelsToggle.onclick = () => { labelsEnabled = !labelsEnabled; render(); };
+    const calloutsToggle = root.querySelector('[data-action="toggle-callouts"]');
+    if (calloutsToggle) calloutsToggle.onclick = () => { calloutsEnabled = !calloutsEnabled; render(); };
     const fullscreenToggle = root.querySelector('[data-action="fullscreen"]');
     if (fullscreenToggle) fullscreenToggle.onclick = () => { mapFullscreen = !mapFullscreen; render(); };
     if (focusSelect) focusSelect.onchange = event => {

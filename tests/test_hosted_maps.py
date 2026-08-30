@@ -4,7 +4,7 @@ import pytest
 from starlette.requests import Request
 
 from app.hosted_maps import HostedMapStore, PublicSheetError, _sheet_export_url
-from scripts.hosted_map_server import _preview_svg, _public_page
+from scripts.hosted_map_server import _map_reference, _municipality_slug, _preview_svg, _public_page, _resolve_map_id
 
 
 def test_sheet_export_url_is_restricted_to_public_google_sheets():
@@ -13,6 +13,16 @@ def test_sheet_export_url_is_restricted_to_public_google_sheets():
 
     with pytest.raises(PublicSheetError):
         _sheet_export_url("https://example.com/spreadsheets/d/abc123")
+
+
+def test_public_map_reference_includes_municipality_and_keeps_legacy_ids_working():
+    map_id = "abcdefghijklmnop"
+    reference = _map_reference(map_id, "San Agustín Tlaxiaca")
+
+    assert _municipality_slug("San Agustín Tlaxiaca") == "san-agustin-tlaxiaca"
+    assert reference == "abcdefghijklmnop-san-agustin-tlaxiaca"
+    assert _resolve_map_id(reference) == map_id
+    assert _resolve_map_id(map_id) == map_id
 
 
 def test_store_persists_only_the_aggregate_snapshot(tmp_path: Path):

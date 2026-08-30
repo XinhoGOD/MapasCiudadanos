@@ -2,7 +2,8 @@
 
 This server is intentionally separate from the MCP transport. It provides a
 small browser workflow: upload an Excel/CSV or paste a public Google Sheets
-URL, generate one aggregate map, and share a stable /maps/<id> URL.
+URL, generate one aggregate map, and share a stable /maps/<id>-<municipality>
+URL.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import re
 import secrets
 import sys
 from html import escape as escape_xml
+import unicodedata
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -33,7 +35,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.analytics import generate_dominant_answer_map, inspect_dataset  # noqa: E402
-from app.hosted_maps import HostedMapStore, PublicSheetError, download_public_workbook, iso_now  # noqa: E402
+from app.hosted_maps import MAP_ID_PATTERN, HostedMapStore, PublicSheetError, download_public_workbook, iso_now  # noqa: E402
 from app.osm import get_road_lines  # noqa: E402
 
 
@@ -64,6 +66,25 @@ def _safe_json(value: Any) -> str:
 def _base_url(request: Request) -> str:
     configured = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
     return configured or f"{request.url.scheme}://{request.url.netloc}"
+
+
+def _municipality_slug(value: str | None) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "Hidalgo")).encode("ascii", "ignore").decode("ascii").lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+    return text[:48] or "hidalgo"
+
+
+def _map_reference(map_id: str, municipality: str | None) -> str:
+    if not MAP_ID_PATTERN.fullmatch(map_id):
+        raise ValueError("El identificador del mapa no es válido.")
+    return f"{map_id}-{_municipality_slug(municipality)}"
+
+
+def _resolve_map_id(map_reference: str) -> str:
+    candidate = str(map_reference or "").split("-", 1)[0]
+    if not MAP_ID_PATTERN.fullmatch(candidate):
+        raise ValueError("El identificador del mapa no es válido.")
+    return candidate
 
 
 def _public_page(envelope: dict[str, Any], request: Request) -> str:
@@ -480,8 +501,9 @@ async def create_map(request: Request) -> JSONResponse:
             })
         envelope = store.create(result, source)
         _ensure_terrain(envelope)
-        map_url = f"{_base_url(request)}/maps/{envelope['map_id']}"
-        preview_url = f"{_base_url(request)}/maps/{envelope['map_id']}/preview.svg"
+        map_reference = _map_reference(str(envelope["map_id"]), result.get("municipality"))
+        map_url = f"{_base_url(request)}/maps/{map_reference}"
+        preview_url = f"{_base_url(request)}/maps/{map_reference}/preview.svg"
         return JSONResponse({
             "map_id": envelope["map_id"],
             "map_url": map_url,
@@ -500,7 +522,7 @@ async def create_map(request: Request) -> JSONResponse:
 
 async def public_map(request: Request) -> HTMLResponse | JSONResponse:
     try:
-        envelope = store.refresh_if_due(request.path_params["map_id"])
+        envelope = store.refresh_if_due(_resolve_map_id(request.path_params["map_id"]))
         _ensure_terrain(envelope)
         return HTMLResponse(_public_page(envelope, request), headers={"Cache-Control": "no-store"})
     except FileNotFoundError:
@@ -511,7 +533,7 @@ async def public_map(request: Request) -> HTMLResponse | JSONResponse:
 
 async def map_version(request: Request) -> JSONResponse:
     try:
-        envelope = store.refresh_if_due(request.path_params["map_id"])
+        envelope = store.refresh_if_due(_resolve_map_id(request.path_params["map_id"]))
         source = envelope.get("source", {})
         return JSONResponse(
             {
@@ -531,7 +553,7 @@ async def map_version(request: Request) -> JSONResponse:
 
 async def terrain(request: Request) -> FileResponse | JSONResponse:
     try:
-        envelope = store.get(request.path_params["map_id"])
+        envelope = store.get(_resolve_map_id(request.path_params["map_id"]))
         if store.uses_persistent_storage:
             content = store.read_binary(_terrain_key(str(envelope["map_id"])))
             if content is None:
@@ -552,7 +574,7 @@ async def terrain(request: Request) -> FileResponse | JSONResponse:
 
 async def preview(request: Request) -> Response | JSONResponse:
     try:
-        envelope = store.get(request.path_params["map_id"])
+        envelope = store.get(_resolve_map_id(request.path_params["map_id"]))
         return Response(
             _preview_svg(envelope),
             media_type="image/svg+xml",
@@ -573,7 +595,7 @@ async def osm_roads(request: Request) -> JSONResponse:
                 raise ValueError("El límite OSM no es válido.")
             roads = get_road_lines([], store.root / "osm-cache", bbox=tuple(values))
         else:
-            envelope = store.get(request.path_params["map_id"])
+            envelope = store.get(_resolve_map_id(request.path_params["map_id"]))
             result = envelope.get("result", {})
             features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
             roads = get_road_lines(features, store.root / "osm-cache")
