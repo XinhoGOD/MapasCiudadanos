@@ -150,6 +150,21 @@ def _bbox_parameter(features: list[dict[str, Any]]) -> str | None:
     return ",".join(f"{value:.7f}" for value in (min(latitudes), min(longitudes), max(latitudes), max(longitudes)))
 
 
+def _osm_key(map_id: str) -> str:
+    if not MAP_ID_PATTERN.fullmatch(map_id):
+        raise ValueError("El identificador del mapa no es válido.")
+    return f"osm/{map_id}.json"
+
+
+def _map_background_features(result: dict[str, Any]) -> list[dict[str, Any]]:
+    return result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
+
+
+def _fetch_osm_context(result: dict[str, Any]) -> dict[str, Any]:
+    """Fetch OSM once while hosting a map; later visits use the stored artifact."""
+    return get_road_lines(_map_background_features(result), store.root / "osm-cache")
+
+
 PREVIEW_COLORS = ["#7b1e3a", "#1f5a4a", "#b38b59", "#4b6682", "#9c5a4f", "#3b806d", "#866b46", "#5a7182"]
 
 
@@ -508,7 +523,14 @@ async def create_map(request: Request) -> JSONResponse:
                 "checked_at": iso_now(),
                 "last_error": None,
             })
+        osm_context = _fetch_osm_context(result)
         envelope = store.create(result, source)
+        try:
+            store.write_json(_osm_key(str(envelope["map_id"])), osm_context)
+        except Exception:
+            # A map remains usable if the OSM artifact store is temporarily
+            # unavailable; the compatibility endpoint can retry once later.
+            pass
         map_reference = _map_reference(str(envelope["map_id"]), result.get("municipality"))
         map_url = f"{_base_url(request)}/maps/{map_reference}"
         preview_url = f"{_base_url(request)}/maps/{map_reference}/preview.svg"
@@ -595,6 +617,12 @@ async def preview(request: Request) -> Response | JSONResponse:
 
 async def osm_roads(request: Request) -> JSONResponse:
     try:
+        map_id = _resolve_map_id(request.path_params["map_id"])
+        stored = store.read_json(_osm_key(map_id))
+        if stored and stored.get("type") == "FeatureCollection":
+            return JSONResponse(stored, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+        envelope = store.get(map_id)
         bbox_text = str(request.query_params.get("bbox") or "").strip()
         if bbox_text:
             values = [float(value) for value in bbox_text.split(",")]
@@ -602,11 +630,13 @@ async def osm_roads(request: Request) -> JSONResponse:
                 raise ValueError("El límite OSM no es válido.")
             roads = get_road_lines([], store.root / "osm-cache", bbox=tuple(values))
         else:
-            envelope = store.get(_resolve_map_id(request.path_params["map_id"]))
             result = envelope.get("result", {})
-            features = result.get("background", {}).get("features", []) or result.get("territory_background", {}).get("features", [])
-            roads = get_road_lines(features, store.root / "osm-cache")
-        return JSONResponse(roads, headers={"Cache-Control": "public, max-age=86400"})
+            roads = _fetch_osm_context(result)
+        try:
+            store.write_json(_osm_key(map_id), roads)
+        except Exception:
+            pass
+        return JSONResponse(roads, headers={"Cache-Control": "public, max-age=31536000, immutable"})
     except FileNotFoundError:
         return _error("No encontré ese mapa público.", 404)
     except ValueError as error:

@@ -220,6 +220,22 @@ class HostedMapStore:
         """Persist a generated binary artifact such as a terrain or preview image."""
         self._write_artifact(key, content, content_type)
 
+    def write_json(self, key: str, payload: dict[str, Any]) -> None:
+        """Persist a generated JSON artifact separately from the map snapshot."""
+        content = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        self._write_artifact(key, content, "application/json")
+
+    def read_json(self, key: str) -> dict[str, Any] | None:
+        """Read a generated JSON artifact, returning None when it is absent or invalid."""
+        content = self._read_artifact(key)
+        if content is None:
+            return None
+        try:
+            payload = json.loads(content.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def read_binary(self, key: str) -> bytes | None:
         """Read a persisted binary artifact, returning None when absent."""
         return self._read_artifact(key)

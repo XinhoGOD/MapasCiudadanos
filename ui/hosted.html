@@ -288,7 +288,7 @@
         preview.hidden = true;
         previewImage.removeAttribute('src');
         status.className = 'reference-status';
-        status.textContent = 'Descargando la fuente y generando el mapa…';
+          status.textContent = 'Descargando la fuente, generando el mapa y guardando el contexto vial…';
         submit.disabled = true;
         try {
           if (sheetUrl.value.trim() && !sheetReady) await inspectSheet();

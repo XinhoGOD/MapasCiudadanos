@@ -1,10 +1,12 @@
+import asyncio
+import json
 from pathlib import Path
 
 import pytest
 from starlette.requests import Request
 
 from app.hosted_maps import HostedMapStore, PublicSheetError, _sheet_export_url
-from scripts.hosted_map_server import _map_reference, _municipality_slug, _preview_svg, _public_page, _resolve_map_id
+from scripts.hosted_map_server import _map_reference, _municipality_slug, _osm_key, _preview_svg, _public_page, _resolve_map_id, osm_roads
 
 
 def test_sheet_export_url_is_restricted_to_public_google_sheets():
@@ -33,6 +35,38 @@ def test_store_persists_only_the_aggregate_snapshot(tmp_path: Path):
     loaded = store.get(envelope["map_id"])
     assert loaded["result"] == result
     assert loaded["source"]["label"] == "encuesta.xlsx"
+
+
+def test_osm_endpoint_uses_persisted_artifact_without_requesting_overpass(tmp_path: Path, monkeypatch):
+    store = HostedMapStore(tmp_path)
+    envelope = store.create({"map_type": "dominant"}, {"type": "file"})
+    stored = {
+        "type": "FeatureCollection",
+        "features": [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-99, 21], [-98.9, 21.1]]}, "properties": {"highway": "primary"}}],
+        "source": "OpenStreetMap",
+        "features_count": 1,
+    }
+    store.write_json(_osm_key(envelope["map_id"]), stored)
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": f"/api/maps/{envelope['map_id']}/osm-roads",
+        "raw_path": f"/api/maps/{envelope['map_id']}/osm-roads".encode(),
+        "query_string": b"bbox=-99,20,-98,22",
+        "headers": [],
+        "path_params": {"map_id": envelope["map_id"]},
+        "server": ("127.0.0.1", 8770),
+        "client": ("127.0.0.1", 1234),
+        "scheme": "http",
+        "http_version": "1.1",
+    }
+    monkeypatch.setattr("scripts.hosted_map_server.store", store)
+    monkeypatch.setattr("scripts.hosted_map_server.get_road_lines", lambda *_args, **_kwargs: pytest.fail("No debe consultar OSM"))
+
+    response = asyncio.run(osm_roads(Request(scope)))
+
+    assert response.status_code == 200
+    assert json.loads(response.body) == stored
 
 
 def test_store_uses_blob_when_a_vercel_token_is_configured(tmp_path: Path, monkeypatch):

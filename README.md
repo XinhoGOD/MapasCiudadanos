@@ -109,7 +109,7 @@ Esta copia agrega un flujo web independiente del inspector MCP. Permite pegar el
 py -3.13 scripts/hosted_map_server.py --host 127.0.0.1 --port 8770
 ```
 
-Abre `http://127.0.0.1:8770/`. Al pegar la URL, la pantalla consulta el libro y muestra el selector **Elige la hoja de tu Google Sheets**; después llena automáticamente los municipios y preguntas de la pestaña elegida. Si sólo hay una hoja, queda seleccionada automáticamente. El mapa público muestra sólo la agregación territorial: cada localidad/colonia se pinta con el color de la respuesta más frecuente, coloca un punto y etiqueta su nombre, y muestra un relieve topográfico descargado y cacheado para el mapa. No expone el Excel, las filas ni los datos individuales.
+Abre `http://127.0.0.1:8770/`. Al pegar la URL, la pantalla consulta el libro y muestra el selector **Elige la hoja de tu Google Sheets**; después llena automáticamente los municipios y preguntas de la pestaña elegida. Si sólo hay una hoja, queda seleccionada automáticamente. El mapa público muestra sólo la agregación territorial: cada localidad/colonia se pinta con el color de la respuesta más frecuente, coloca un punto y etiqueta su nombre. Las líneas viales de OpenStreetMap se consultan una sola vez al alojar el mapa, se guardan como un artefacto asociado al identificador y después se sirven desde el almacenamiento del proyecto; la visita no vuelve a consultar OSM. No expone el Excel, las filas ni los datos individuales.
 
 Cuando la fuente es Google Sheets, el servidor revisa la hoja periódicamente (60 segundos por defecto), compara su huella de contenido y conserva el mapa anterior si una actualización falla. No usa Apps Script: consume el export CSV HTTPS de una hoja con permiso de lectura público. La URL local sólo es visible en tu computadora; para compartirla por internet configura una dirección HTTPS en `PUBLIC_BASE_URL` y despliega este servidor en un host que ejecute Python.
 
@@ -122,7 +122,7 @@ SHEET_REFRESH_SECONDS=60
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 ```
 
-En local, los mapas se guardan como JSON en `work/hosted-maps`. En Vercel, crea y conecta un almacén **Vercel Blob** de acceso privado al proyecto y agrega `BLOB_READ_WRITE_TOKEN` en Project Settings → Environment Variables; cuando esa variable existe, los snapshots y relieves se guardan en Blob privado y el servidor los entrega mediante las URLs públicas de cada mapa. Esto evita perder los enlaces al reiniciar una función o hacer un nuevo despliegue. Si Vercel no tiene esa variable, la API detiene la creación para no volver a generar enlaces efímeros. La vista previa es un SVG estático generado desde la agregación territorial, sin publicar el archivo original.
+En local, los mapas y sus artefactos OSM se guardan como JSON en `work/hosted-maps`. En Vercel, crea y conecta un almacén **Vercel Blob** de acceso privado al proyecto y agrega `BLOB_READ_WRITE_TOKEN` en Project Settings → Environment Variables; cuando esa variable existe, los snapshots, las líneas OSM y los relieves se guardan en Blob privado y el servidor los entrega mediante las URLs públicas de cada mapa. Esto evita perder los enlaces al reiniciar una función o hacer un nuevo despliegue. Si Vercel no tiene esa variable, la API detiene la creación para no volver a generar enlaces efímeros. La vista previa es un SVG estático generado desde la agregación territorial, sin publicar el archivo original.
 
 ## Identidad institucional
 
